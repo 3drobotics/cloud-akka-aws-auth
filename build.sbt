@@ -4,6 +4,8 @@ version := "1.0"
 
 scalaVersion := "2.11.7"
 
+organization := "io.dronekit"
+
 resolvers += "Artifactory" at "https://dronekit.artifactoryonline.com/dronekit/libs-snapshot-local/"
 
 credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
