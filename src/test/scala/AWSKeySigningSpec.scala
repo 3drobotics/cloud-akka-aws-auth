@@ -146,7 +146,7 @@ class AWSKeySigningSpec extends FunSpec with Matchers {
       val  authorization = "AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/iam/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=ced6826de92d2bdeed8f846f0bf508e8559e98e4b0199114b84c54174deb456c"
       testAuthorization shouldBe authorization
     }
-
+  val uuid = UUID.randomUUID().toString
     //uses a random UUID to prevent using the same index again
     it("Should post the correct httpRequest with all the necessary aws authentication") {
       import DefaultJsonProtocol._
@@ -154,11 +154,11 @@ class AWSKeySigningSpec extends FunSpec with Matchers {
       val region = awsConfig.getString("region")
       val kSecret = awsConfig.getString("kSecret")
       val baseURI = awsConfig.getString("testURI")
-      val uuid = UUID.randomUUID().toString
-      val URI = s"$baseURI$uuid"
-      val data = Map("item1"->"1", "item2"->"2")
-      val paramStr = data.toJson.compactPrint
-      val entity = HttpEntity(contentType = MediaTypes.`application/x-www-form-urlencoded`, paramStr)
+      val URI = s"${baseURI}test/$uuid"
+      val data = Map("item1"->"1", "item2"->"2", "item3"->"3")
+      val paramStr2 = data.toJson.compactPrint
+      val entity = HttpEntity(contentType = MediaTypes.`application/x-www-form-urlencoded`, paramStr2)
+      println(paramStr2)
       val request = HttpRequest(
         method = HttpMethods.POST,
         uri = URI,
@@ -169,7 +169,30 @@ class AWSKeySigningSpec extends FunSpec with Matchers {
       val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
       val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
       val responseJson = responseData.toJson
-      println(responseJson.prettyPrint)
+      println(responseJson.prettyPrint.replace("\\\\", "\\").replace("\\n", "\n"))
+      val testForm = Await.result(SignRequestForAWS.createCanonicalRequest(request), 10 seconds)
+      println(testForm)
+      response.status.toString shouldBe "201 Created"
+    }
+
+    it ("should be a sucessful get request of the posted information") {
+      import DefaultJsonProtocol._
+      val accessKeyID = awsConfig.getString("accessKeyID")
+      val region = awsConfig.getString("region")
+      val kSecret = awsConfig.getString("kSecret")
+      val baseURI = awsConfig.getString("testURI")
+      val URI = s"${baseURI}test"
+      val request = HttpRequest(
+        method = HttpMethods.GET,
+        uri = URI,
+        headers = List()
+      )
+      val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 15 seconds)
+      println(authRequest)
+      val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+      val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
+      val responseJson = responseData.toJson
+      println(responseJson.prettyPrint.replace("\\\\", "\\").replace("\\n", "\n"))
       response.status.toString shouldBe "200 OK"
     }
 
@@ -206,7 +229,7 @@ class AWSKeySigningSpec extends FunSpec with Matchers {
       uri = URI,
       headers = List()
     )
-    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, "es"), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, "es", 30), 15 seconds)
     println(authRequest.uri)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
