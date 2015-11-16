@@ -179,7 +179,6 @@ object SignRequestForAWS {
       if (httpRequest.entity.isKnownEmpty()) Future.successful("")
       else httpRequest.entity.dataBytes.map(_.utf8String).runWith(Sink.head)
     contentsFuture.map { entity =>
-//    ${httpRequest.uri.path.toString().replace("+", "%20")}
       s"""${httpRequest.method.name}
          |${httpRequest.uri.path.toString()}
          |${generateValidUriQuery(httpRequest.uri.query)}
@@ -253,7 +252,6 @@ object SignRequestForAWS {
   }
 
   def post(httpRequest: HttpRequest): Future[HttpResponse] = {
-    import DefaultJsonProtocol._
     val endpoint = httpRequest.uri.toString()
     val uri = java.net.URI.create(endpoint)
     val outgoingConn = if (uri.getScheme() == "https") {

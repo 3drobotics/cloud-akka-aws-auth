@@ -1,6 +1,7 @@
 import java.util.UUID
 
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.StatusCode._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import io.dronekit.cloud.SignRequestForAWS
@@ -20,6 +21,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
   implicit val ec: ExecutionContext = testSystem.dispatcher
   implicit val materializer = ActorMaterializer()
 
+  //helps for debugging
   def jsonPrint(response: HttpResponse) {
     import DefaultJsonProtocol._
     val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
@@ -46,7 +48,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    response.status.toString shouldBe "201 Created"
+    response.status shouldBe StatusCodes.Created
   }
 
   it ("should be a sucessful get request by adding the authorization header") {
@@ -62,7 +64,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    response.status.toString shouldBe "200 OK"
+    response.status shouldBe StatusCodes.OK
   }
   it ("should be a sucessful get request of the posted information") {
     val accessKeyID = awsConfig.getString("accessKeyID")
@@ -77,7 +79,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    response.status.toString shouldBe "200 OK"
+    response.status shouldBe StatusCodes.OK
   }
 
   it ("should be a sucessful get request adding the authorization query String") {
@@ -93,6 +95,6 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, "es", 30), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    response.status.toString shouldBe "200 OK"
+    response.status shouldBe StatusCodes.OK
   }
 }
