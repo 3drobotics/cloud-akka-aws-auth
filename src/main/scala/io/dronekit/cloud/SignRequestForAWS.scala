@@ -211,7 +211,7 @@ object SignRequestForAWS {
       .map{case (name, values) => s"$values"}
       .mkString("\n")
     // how to choose something else if dateString is empty
-    if (dateString.length <= 1 ) {
+    if (dateString.isEmpty) {
       getUTCTime()
     } else {
       dateString
