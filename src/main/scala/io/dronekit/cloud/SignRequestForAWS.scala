@@ -261,4 +261,11 @@ object SignRequestForAWS {
     }
     Source.single(httpRequest).via(outgoingConn).runWith(Sink.head)
   }
+
+  def awsPostRequest(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String): Future[HttpResponse] = {
+    val authRequestFuture: Future[HttpRequest] = SignRequestForAWS.addAuthorizationHeader(httpRequest, key, region, accessKeyId, service)
+    authRequestFuture.flatMap{req =>
+      post(req)
+    }
+  }
 }

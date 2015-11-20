@@ -36,7 +36,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
     val kSecret = awsConfig.getString("kSecret")
-    val baseURI = awsConfig.getString("testURI")
+    val baseURI = awsConfig.getString("URI")
+    val service = awsConfig.getString("service")
     val URI = s"${baseURI}test/$uuid"
     val data = Map("item1"->"1", "item2"->"2", "item3"->"3")
     val paramStr2 = data.toJson.compactPrint
@@ -46,7 +47,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       uri = URI,
       entity = entity
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 10 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.Created
   }
@@ -55,14 +56,14 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
     val kSecret = awsConfig.getString("kSecret")
-    val baseURI = awsConfig.getString("testURI")
+    val baseURI = awsConfig.getString("URI")
+    val service = awsConfig.getString("service")
     val URI = s"${baseURI}?Version=2013-10-15&Action=DescribeRegions"
     val request = HttpRequest(
       method = HttpMethods.GET,
-      uri = URI,
-      headers = List()
+      uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -70,14 +71,14 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
     val kSecret = awsConfig.getString("kSecret")
-    val baseURI = awsConfig.getString("testURI")
+    val baseURI = awsConfig.getString("URI")
+    val service = awsConfig.getString("service")
     val URI = s"${baseURI}test"
     val request = HttpRequest(
       method = HttpMethods.GET,
-      uri = URI,
-      headers = List()
+      uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, "es"), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -86,14 +87,14 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
     val kSecret = awsConfig.getString("kSecret")
-    val baseURI = awsConfig.getString("testURI")
+    val baseURI = awsConfig.getString("URI")
+    val service = awsConfig.getString("service")
     val URI = s"$baseURI?Version=2013-10-15&Action=DescribeRegions"
     val request = HttpRequest(
       method = HttpMethods.GET,
-      uri = URI,
-      headers = List()
+      uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, "es", 30), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, service, 30), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
