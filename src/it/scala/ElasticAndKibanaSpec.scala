@@ -11,6 +11,7 @@ import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
+import io.dronekit.cloud.utils.AWSCredentials
 
 /**
  * Created by Adam Villaflor <adam.villaflor@3drobotics.com> on 11/11/15.
@@ -29,13 +30,19 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     println(responseJson.prettyPrint.replace("\\\\", "\\").replace("\\n", "\n"))
   }
 
+  val futureCredentials = AWSCredentials.get_credentials()
+  var accessKeyID = ""
+  var kSecret = ""
+  Await.result(futureCredentials, 10 seconds) match {
+    case Some(credentials) =>
+      accessKeyID = credentials.accessKeyId
+      kSecret = credentials.secretAccessKey
+  }
   val uuid = UUID.randomUUID().toString
   //uses a random UUID to prevent using the same index again
   it("Should post the correct httpRequest with all the necessary aws authentication") {
     import DefaultJsonProtocol._
-    val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
-    val kSecret = awsConfig.getString("kSecret")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")
     val URI = s"${baseURI}test/$uuid"
@@ -49,13 +56,12 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+    jsonPrint(response)
     response.status shouldBe StatusCodes.Created
   }
 
   it ("should be a sucessful get request by adding the authorization header") {
-    val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
-    val kSecret = awsConfig.getString("kSecret")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")
     val URI = s"${baseURI}?Version=2013-10-15&Action=DescribeRegions"
@@ -68,9 +74,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     response.status shouldBe StatusCodes.OK
   }
   it ("should be a sucessful get request of the posted information") {
-    val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
-    val kSecret = awsConfig.getString("kSecret")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")
     val URI = s"${baseURI}test"
@@ -84,9 +88,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
   }
 
   it ("should be a sucessful get request adding the authorization query String") {
-    val accessKeyID = awsConfig.getString("accessKeyID")
     val region = awsConfig.getString("region")
-    val kSecret = awsConfig.getString("kSecret")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")
     val URI = s"$baseURI?Version=2013-10-15&Action=DescribeRegions"
