@@ -100,15 +100,19 @@ object AWSCredentials {
     val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
     val httpResponseFuture = SignRequestForAWS.post(httpRequest)
-    var key_id:Option[String] = None
-    var access_key:Option[String] = None
     httpResponseFuture.map{
       case response =>
         val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
-        val responseJson = responseData.toJson
-        val jsonMap:Map[String,String] = responseJson.convertTo[Map[String,String]]
-        key_id = jsonMap.get("AccessKeyId")
-        access_key = jsonMap.get("SecretAccessKey")
+        val responseJson = responseData.parseJson
+        var key_id:Option[String] = None
+        var access_key:Option[String] = None
+        val jsonMap = responseJson.asJsObject().fields
+        val js_key_id = jsonMap.get("AccessKeyId")
+        if (js_key_id.isDefined)
+          key_id = Some(js_key_id.get.toString())
+        val js_access_key = jsonMap.get("SecretAccessKey")
+        if (js_access_key.isDefined)
+          access_key = Some(js_access_key.get.toString())
         valid_credentials(key_id, access_key)
     }
   }

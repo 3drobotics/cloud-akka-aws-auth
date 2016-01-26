@@ -35,7 +35,6 @@ libraryDependencies ++= {
     "io.spray" %%  "spray-json" % "1.3.2",
     "commons-codec" % "commons-codec" % "1.6",
     "com.typesafe.akka" %% "akka-http-testkit-experimental" % akkaStreamV,
-    "io.dronekit" %% "oauth-headers" % "0.2",
     "org.scalatest" %% "scalatest" % scalaTestV % "it,test",
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2" % "it,test",
     "org.specs2" %% "specs2-core" % "2.4.14" % "it,test",
