@@ -116,7 +116,7 @@ object AWSCredentials {
           access_key = Some(js_access_key.get.toString())
         println(key_id)
         println(access_key)
-        valid_credentials(access_key, key_id)
+        valid_credentials(key_id, access_key)
     }
   }
 
@@ -125,7 +125,7 @@ object AWSCredentials {
     val envCredentials = Future.successful(get_envCredentials())
     val envCredentials_alt = Future.successful(get_envCredentials_alt())
     val javaSysCredentials = Future.successful(get_javaSysCredentials())
-    val profileCredentials = get_credentials_profile()
+    val profileCredentials = get_credentials_profile(profile)
     val ecsCredentials = if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName) else Future{None}
     val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentials_alt, javaSysCredentials, profileCredentials, ecsCredentials)
 //    envCredentials.onComplete { case Success(perm) => if (perm.isDefined) perm
