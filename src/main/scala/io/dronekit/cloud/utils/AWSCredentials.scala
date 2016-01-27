@@ -116,7 +116,7 @@ object AWSCredentials {
           access_key = Some(js_access_key.get.toString())
         println(key_id)
         println(access_key)
-        valid_credentials(key_id, access_key)
+        valid_credentials(access_key, key_id)
     }
   }
 
