@@ -21,8 +21,8 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
   def jsonPrint(response: HttpResponse) {
     import DefaultJsonProtocol._
     val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
-    val responseJson = responseData.toJson
-    println(responseJson.prettyPrint.replace("\\\\", "\\").replace("\\n", "\n"))
+    val responseJson = responseData.parseJson
+    println(responseJson.prettyPrint)
   }
 
   describe("Should get the credentials") {

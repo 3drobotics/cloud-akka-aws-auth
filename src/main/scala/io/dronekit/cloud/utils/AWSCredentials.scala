@@ -104,6 +104,7 @@ object AWSCredentials {
       case response =>
         val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
         val responseJson = responseData.parseJson
+        println(responseJson.prettyPrint)
         var key_id:Option[String] = None
         var access_key:Option[String] = None
         val jsonMap = responseJson.asJsObject().fields
@@ -113,6 +114,8 @@ object AWSCredentials {
         val js_access_key = jsonMap.get("SecretAccessKey")
         if (js_access_key.isDefined)
           access_key = Some(js_access_key.get.toString())
+        println(key_id)
+        println(access_key)
         valid_credentials(key_id, access_key)
     }
   }

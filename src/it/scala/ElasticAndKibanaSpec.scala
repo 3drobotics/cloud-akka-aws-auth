@@ -26,8 +26,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
   def jsonPrint(response: HttpResponse) {
     import DefaultJsonProtocol._
     val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
-    val responseJson = responseData.toJson
-    println(responseJson.prettyPrint.replace("\\\\", "\\").replace("\\n", "\n"))
+    val responseJson = responseData.parseJson
+    println(responseJson.prettyPrint)
   }
 
   val futureCredentials = AWSCredentials.get_credentials()
@@ -37,6 +37,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     case Some(credentials) =>
       accessKeyID = credentials.accessKeyId
       kSecret = credentials.secretAccessKey
+    case None => ;
   }
   val uuid = UUID.randomUUID().toString
   //uses a random UUID to prevent using the same index again
