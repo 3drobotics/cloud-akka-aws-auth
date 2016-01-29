@@ -22,11 +22,11 @@ object AWSCredentials {
   implicit val ec: ExecutionContext = system.dispatcher
   implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  case class AWSPermissions(accessKeyId: String, secretAccessKey: String)
+  case class AWSPermissions(accessKeyId: String, secretAccessKey: String, token: String = "")
 
-  def valid_credentials(key_id:Option[String], access_key:Option[String]): Option[AWSPermissions] = {
+  def valid_credentials(key_id:Option[String], access_key:Option[String], token: Option[String] = Some("")): Option[AWSPermissions] = {
     if (key_id.isDefined && access_key.isDefined && key_id.get != null && access_key.get != null)
-      Some(AWSPermissions(key_id.get, access_key.get))
+      Some(AWSPermissions(key_id.get, access_key.get, token.get))
     else None
   }
 
@@ -107,6 +107,7 @@ object AWSCredentials {
         println(responseJson.prettyPrint)
         var key_id:Option[String] = None
         var access_key:Option[String] = None
+        var token:Option[String] = None
         val jsonMap = responseJson.asJsObject().fields
         val js_key_id = jsonMap.get("AccessKeyId")
         if (js_key_id.isDefined)
@@ -114,9 +115,12 @@ object AWSCredentials {
         val js_access_key = jsonMap.get("SecretAccessKey")
         if (js_access_key.isDefined)
           access_key = Some(js_access_key.get.toString())
+        val js_token = jsonMap.get("Token")
+        if (js_token.isDefined)
+          token = Some(js_token.get.toString())
         println(key_id)
         println(access_key)
-        valid_credentials(key_id, access_key)
+        valid_credentials(key_id, access_key, token)
     }
   }
 

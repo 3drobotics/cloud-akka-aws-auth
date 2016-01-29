@@ -107,8 +107,12 @@ object SignRequestForAWS {
   }
 
   // adds the authorizations header to an httpRequest as described in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
-  def addAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String): Future[HttpRequest] = {
-    val request = httpRequest.withHeaders( httpRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
+  def addAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, token: String = ""): Future[HttpRequest] = {
+    var tokenRequest = httpRequest
+    if (token.length() > 0) {
+      tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
+    }
+    val request = tokenRequest.withHeaders( httpRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
                     .withUri(uriEncode(httpRequest.uri))
     val authHeaderFuture = createAuthorizationHeader(request, key, region, accessKeyId, service)
     authHeaderFuture.map { authHeader => request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader))
@@ -116,9 +120,13 @@ object SignRequestForAWS {
   }
 
   // adds the authorization query to the uri for aws services as described in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
-  def addQueryString(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, expires: Int): Future[HttpRequest] = {
+  def addQueryString(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, expires: Int, token: String = ""): Future[HttpRequest] = {
     val date = getUTCTime()
-    val datedRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-date", date))
+    var tokenRequest = httpRequest
+    if (token.length > 0) {
+      tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
+    }
+    val datedRequest = httpRequest.withHeaders(tokenRequest.headers :+ RawHeader("x-amz-date", date))
     val noHmsDate = getNoHmsDate(datedRequest)
     val algorithm = "AWS4-HMAC-SHA256"
     val credential = accessKeyId + "/" + getCredentialScope(noHmsDate, region, service)
