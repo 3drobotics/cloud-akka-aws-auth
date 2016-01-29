@@ -157,7 +157,10 @@ object AWSCredentials {
     //    p.future
     val futureCredentials = Future.sequence(credentialProviderList).map(_ collectFirst { case Some(x) => x })
     futureCredentials onComplete {
-      case Success(credential) => credential
+      case Success(credential) => if (credential.isEmpty) {
+        if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName)
+        else Future {None}
+      }
       case Failure(t) =>
         if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName)
         else Future {None}
