@@ -98,12 +98,12 @@ object AWSCredentials {
     get_specific_credentials_profile(credential_file,profile)
   }
 
-  def get_Amazon_EC2_metadata_credentials(roleName:String): Future[Option[AWSPermissions]] = {
+  def get_Amazon_EC2_metadata_credentials(roleName:String, timeout:Int = 2): Future[Option[AWSPermissions]] = {
     import DefaultJsonProtocol._
     val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
     val httpResponseFuture = SignRequestForAWS.post(httpRequest)
-    httpResponseFuture flatMap{
+    val ecsCredentials = httpResponseFuture flatMap{
       case response:HttpResponse =>
 //        val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 5 seconds).mkString
         response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
@@ -126,6 +126,9 @@ object AWSCredentials {
               token = Some(js_token.get.toString() replaceAll ("[\"]", ""))
             valid_credentials(key_id, access_key, token) }
     }
+    Future.firstCompletedOf(
+      List(ecsCredentials,
+        after(timeout seconds, system.scheduler)(Future {None})))
   }
 
   def get_credentials(profile:String = "default", roleName:String = ""): Future[Option[AWSPermissions]] = {
@@ -156,12 +159,9 @@ object AWSCredentials {
     futureCredentials onComplete {
       case Success(credential) => credential
       case Failure(t) =>
-        val ecsCredentials = if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName)
+        if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName)
         else Future {None}
-        Future.firstCompletedOf(
-          List(ecsCredentials,
-            after(2 seconds, system.scheduler)(Future {None})))
-    }
+  }
     futureCredentials
   }
 }
