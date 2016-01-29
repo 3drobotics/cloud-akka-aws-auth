@@ -30,7 +30,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     println(responseJson.prettyPrint)
   }
 
-  val futureCredentials = AWSCredentials.get_credentials("default")
+  val futureCredentials = AWSCredentials.get_credentials("default", roleName = "aws-opsworks-ec2-role")
   var accessKeyID = ""
   var kSecret = ""
   Await.result(futureCredentials, 10 seconds) match {
