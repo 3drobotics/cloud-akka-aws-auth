@@ -126,12 +126,12 @@ object SignRequestForAWS {
     if (token.length > 0) {
       tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
     }
-    val datedRequest = httpRequest.withHeaders(tokenRequest.headers :+ RawHeader("x-amz-date", date))
+    val datedRequest = tokenRequest.withHeaders(tokenRequest.headers :+ RawHeader("x-amz-date", date))
     val noHmsDate = getNoHmsDate(datedRequest)
     val algorithm = "AWS4-HMAC-SHA256"
     val credential = accessKeyId + "/" + getCredentialScope(noHmsDate, region, service)
     val signedHeaders = getSignedHeaders(datedRequest.headers, httpRequest.uri)
-    val qString = uriString(datedRequest, date, algorithm, credential, signedHeaders, expires)
+    val qString = uriString(datedRequest, date, algorithm, credential, signedHeaders, expires, token)
     val URI = uriEncode(httpRequest.uri.withQuery(qString))
     val tempRequest = datedRequest.withUri(URI)
     val canonicalRequestFuture: Future[String] = createCanonicalRequest(tempRequest)
@@ -146,9 +146,12 @@ object SignRequestForAWS {
   }
 
   // adds all the params and values for the query string
-  def uriString(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String, expires:Int): String = {
-    val params = httpRequest.uri.query.toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
+  def uriString(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String, expires:Int, token:String): String = {
+    var params = httpRequest.uri.query.toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
       "X-Amz-Date" -> date, "X-Amz-Expires" -> expires.toString, "X-Amz-SignedHeaders" -> signedHeaders)
+    if (token.length > 0) {
+      params = params + ("X-Amz-Security-Token" -> token)
+    }
     Query(params).toString()
   }
 
