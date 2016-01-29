@@ -112,7 +112,7 @@ object SignRequestForAWS {
     if (token.length() > 0) {
       tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
     }
-    val request = tokenRequest.withHeaders( httpRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
+    val request = tokenRequest.withHeaders( tokenRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
                     .withUri(uriEncode(httpRequest.uri))
     val authHeaderFuture = createAuthorizationHeader(request, key, region, accessKeyId, service)
     authHeaderFuture.map { authHeader => request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader))
