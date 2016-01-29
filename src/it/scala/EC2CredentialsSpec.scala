@@ -37,6 +37,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
         case Some(permission) =>
           val accessKeyID = permission.accessKeyId
           val kSecret = permission.secretAccessKey
+          println(accessKeyID)
           val token = permission.token
           val baseURI = awsConfig.getString("URI")
           val service = awsConfig.getString("service")
@@ -56,7 +57,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
       }
     }
     it ("send a request using general get method") {
-      val futureCredentials = AWSCredentials.get_credentials(roleName = "aws-opsworks-ec2-role")
+      val futureCredentials = AWSCredentials.get_credentials(profile = "fail", roleName = "aws-opsworks-ec2-role")
       Await.result(futureCredentials, 10 seconds) match {
         case Some(permission) =>
           val accessKeyID = permission.accessKeyId

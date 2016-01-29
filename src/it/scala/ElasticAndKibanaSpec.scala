@@ -34,7 +34,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
   var accessKeyID = ""
   var kSecret = ""
   var token = ""
-  Await.result(futureCredentials, 25 seconds) match {
+  Await.result(futureCredentials, 10 seconds) match {
     case Some(credentials) =>
       accessKeyID = credentials.accessKeyId
       kSecret = credentials.secretAccessKey
