@@ -55,5 +55,31 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
           None shouldBe StatusCodes.OK
       }
     }
+    it ("send a request using general get method") {
+      val futureCredentials = AWSCredentials.get_credentials(roleName = "aws-opsworks-ec2-role")
+      Await.result(futureCredentials, 10 seconds) match {
+        case Some(permission) =>
+          val accessKeyID = permission.accessKeyId
+          println(accessKeyID)
+          val kSecret = permission.secretAccessKey
+          println(kSecret)
+          val token = permission.token
+          val baseURI = awsConfig.getString("URI")
+          val service = awsConfig.getString("service")
+          val region = awsConfig.getString("region")
+          val URI = s"${baseURI}?Version=2013-10-15&Action=DescribeRegions"
+          val request = HttpRequest(
+            method = HttpMethods.GET,
+            uri = URI
+          )
+          val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+          println(authRequest)
+          val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+          jsonPrint(response)
+          response.status shouldBe StatusCodes.OK
+        case None =>
+          None shouldBe StatusCodes.OK
+      }
+    }
   }
 }
