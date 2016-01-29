@@ -30,13 +30,15 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     println(responseJson.prettyPrint)
   }
 
-  val futureCredentials = AWSCredentials.get_credentials("default", roleName = "aws-opsworks-ec2-role")
+  val futureCredentials = AWSCredentials.get_credentials(roleName = "aws-opsworks-ec2-role")
   var accessKeyID = ""
   var kSecret = ""
-  Await.result(futureCredentials, 10 seconds) match {
+  var token = ""
+  Await.result(futureCredentials, 25 seconds) match {
     case Some(credentials) =>
       accessKeyID = credentials.accessKeyId
       kSecret = credentials.secretAccessKey
+      token = credentials.token
     case None => ;
   }
   val uuid = UUID.randomUUID().toString
@@ -55,7 +57,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       uri = URI,
       entity = entity
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 10 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     jsonPrint(response)
     response.status shouldBe StatusCodes.Created
@@ -70,7 +72,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -83,7 +85,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -97,7 +99,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, service, 30), 15 seconds)
+    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 15 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }

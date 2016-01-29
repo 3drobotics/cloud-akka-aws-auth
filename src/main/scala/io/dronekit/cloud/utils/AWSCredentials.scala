@@ -3,17 +3,20 @@ package io.dronekit.cloud.utils
  * Created by Adam Villaflor on 11/30/2015.
  */
 
+import java.util.concurrent.TimeoutException
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+import akka.pattern.after
 import io.dronekit.cloud.SignRequestForAWS
 import spray.json.DefaultJsonProtocol
 import scala.io.Source
 import spray.json._
 import scala.concurrent.duration._
 import scala.concurrent.{Promise, Await, ExecutionContext, Future}
-import scala.util.Success
+import scala.util.{Success, Failure}
 
 
 object AWSCredentials {
@@ -100,25 +103,28 @@ object AWSCredentials {
     val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
     val httpResponseFuture = SignRequestForAWS.post(httpRequest)
-    httpResponseFuture.map{
-      case response =>
-        val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
-        val responseJson = responseData.parseJson
-        println(responseJson.prettyPrint)
-        var key_id:Option[String] = None
-        var access_key:Option[String] = None
-        var token:Option[String] = None
-        val jsonMap = responseJson.asJsObject().fields
-        val js_key_id = jsonMap.get("AccessKeyId")
-        if (js_key_id.isDefined)
-          key_id = Some(js_key_id.get.toString() replaceAll ("[\"]", ""))
-        val js_access_key = jsonMap.get("SecretAccessKey")
-        if (js_access_key.isDefined)
-          access_key = Some(js_access_key.get.toString() replaceAll ("[\"]", ""))
-        val js_token = jsonMap.get("Token")
-        if (js_token.isDefined)
-          token = Some(js_token.get.toString() replaceAll ("[\"]", ""))
-        valid_credentials(key_id, access_key, token)
+    httpResponseFuture flatMap{
+      case response:HttpResponse =>
+//        val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 5 seconds).mkString
+        response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
+          case responseInfo =>
+            val responseData = responseInfo.mkString
+            val responseJson = responseData.parseJson
+            println(responseJson.prettyPrint)
+            var key_id:Option[String] = None
+            var access_key:Option[String] = None
+            var token:Option[String] = None
+            val jsonMap = responseJson.asJsObject().fields
+            val js_key_id = jsonMap.get("AccessKeyId")
+            if (js_key_id.isDefined)
+              key_id = Some(js_key_id.get.toString() replaceAll ("[\"]", ""))
+            val js_access_key = jsonMap.get("SecretAccessKey")
+            if (js_access_key.isDefined)
+              access_key = Some(js_access_key.get.toString() replaceAll ("[\"]", ""))
+            val js_token = jsonMap.get("Token")
+            if (js_token.isDefined)
+              token = Some(js_token.get.toString() replaceAll ("[\"]", ""))
+            valid_credentials(key_id, access_key, token) }
     }
   }
 
@@ -128,26 +134,34 @@ object AWSCredentials {
     val envCredentials_alt = Future.successful(get_envCredentials_alt())
     val javaSysCredentials = Future.successful(get_javaSysCredentials())
     val profileCredentials = get_credentials_profile(profile)
-    val ecsCredentials = if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName) else Future{None}
-    val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentials_alt, javaSysCredentials, profileCredentials, ecsCredentials)
-//    envCredentials.onComplete { case Success(perm) => if (perm.isDefined) perm
-//    else
-//      envCredentials_alt.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
-//      else
-//        javaSysCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
-//        else
-//          profileCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
-//          else
-//            ecsCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
-//            else
-//              p.trySuccess(None)
-//            }
-//          }
-//        }
-//      }
-//    }
-//    p.future
-    Future.sequence(credentialProviderList).map(_ collectFirst { case Some(x) => x })
+    val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentials_alt, javaSysCredentials, profileCredentials)
+    //    envCredentials.onComplete { case Success(perm) => if (perm.isDefined) perm
+    //    else
+    //      envCredentials_alt.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
+    //      else
+    //        javaSysCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
+    //        else
+    //          profileCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
+    //          else
+    //            ecsCredentials.onComplete { case Success(perm:Option[AWSPermissions]) => if (perm.isDefined) p.trySuccess(perm)
+    //            else
+    //              p.trySuccess(None)
+    //            }
+    //          }
+    //        }
+    //      }
+    //    }
+    //    p.future
+    val futureCredentials = Future.sequence(credentialProviderList).map(_ collectFirst { case Some(x) => x })
+    futureCredentials onComplete {
+      case Success(credential) => credential
+      case Failure(t) =>
+        val ecsCredentials = if (roleName != "") get_Amazon_EC2_metadata_credentials(roleName)
+        else Future {None}
+        Future.firstCompletedOf(
+          List(ecsCredentials,
+            after(2 seconds, system.scheduler)(Future {None})))
+    }
+    futureCredentials
   }
-
 }
