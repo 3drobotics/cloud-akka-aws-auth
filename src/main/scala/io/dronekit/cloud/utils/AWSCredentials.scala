@@ -111,13 +111,13 @@ object AWSCredentials {
         val jsonMap = responseJson.asJsObject().fields
         val js_key_id = jsonMap.get("AccessKeyId")
         if (js_key_id.isDefined)
-          key_id = Some(js_key_id.get.toString())
+          key_id = Some(js_key_id.get.toString() replaceAll ("[\"]", ""))
         val js_access_key = jsonMap.get("SecretAccessKey")
         if (js_access_key.isDefined)
-          access_key = Some(js_access_key.get.toString())
+          access_key = Some(js_access_key.get.toString() replaceAll ("[\"]", ""))
         val js_token = jsonMap.get("Token")
         if (js_token.isDefined)
-          token = Some(js_token.get.toString())
+          token = Some(js_token.get.toString() replaceAll ("[\"]", ""))
         valid_credentials(key_id, access_key, token)
     }
   }
