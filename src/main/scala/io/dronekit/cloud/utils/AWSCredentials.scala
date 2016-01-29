@@ -118,8 +118,6 @@ object AWSCredentials {
         val js_token = jsonMap.get("Token")
         if (js_token.isDefined)
           token = Some(js_token.get.toString())
-        println(key_id)
-        println(access_key)
         valid_credentials(key_id, access_key, token)
     }
   }

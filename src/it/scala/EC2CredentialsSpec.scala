@@ -47,6 +47,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
             uri = URI
           )
           val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+          println(authRequest)
           val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
           jsonPrint(response)
           response.status shouldBe StatusCodes.OK
