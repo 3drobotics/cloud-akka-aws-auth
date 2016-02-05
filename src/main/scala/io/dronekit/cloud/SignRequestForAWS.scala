@@ -145,6 +145,7 @@ object SignRequestForAWS {
     }
   }
 
+  //TODO add arbitrary items to query string
   // adds all the params and values for the query string
   def uriString(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String, expires:Int, token:String): String = {
     var params = httpRequest.uri.query.toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,

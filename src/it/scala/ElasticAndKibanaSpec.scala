@@ -30,7 +30,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     println(responseJson.prettyPrint)
   }
 
-  val futureCredentials = AWSCredentials.get_credentials(roleName = "aws-opsworks-ec2-role")
+  val futureCredentials = AWSCredentials.get_credentials(roleName = awsConfig.getString("roleName"))
   var accessKeyID = ""
   var kSecret = ""
   var token = ""
@@ -59,7 +59,6 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    jsonPrint(response)
     response.status shouldBe StatusCodes.Created
   }
 

@@ -27,12 +27,21 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
 
   describe("Should get the credentials") {
     it ("get credentials") {
-      val futureCredentials = AWSCredentials.get_Amazon_EC2_metadata_credentials("aws-opsworks-ec2-role")
+      val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
+      val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
+      val httpResponseFuture = SignRequestForAWS.post(httpRequest)
+      httpResponseFuture map{
+        case response:HttpResponse =>
+          jsonPrint(response)
+      }
+      val roleName = awsConfig.getString("roleName")
+      val futureCredentials = AWSCredentials.get_Amazon_EC2_metadata_credentials(roleName)
       val credentials = Await.result(futureCredentials, 10 seconds)
       credentials.isEmpty shouldBe false
     }
     it ("send a request") {
-      val futureCredentials = AWSCredentials.get_Amazon_EC2_metadata_credentials("aws-opsworks-ec2-role")
+      val roleName = awsConfig.getString("roleName")
+      val futureCredentials = AWSCredentials.get_Amazon_EC2_metadata_credentials(roleName)
       Await.result(futureCredentials, 10 seconds) match {
         case Some(permission) =>
           val accessKeyID = permission.accessKeyId
@@ -57,7 +66,8 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
       }
     }
     it ("send a request using general get method") {
-      val futureCredentials = AWSCredentials.get_credentials(profile = "fail", roleName = "aws-opsworks-ec2-role")
+      val roleName = awsConfig.getString("roleName")
+      val futureCredentials = AWSCredentials.get_credentials(profile = "fail", roleName = roleName)
       Await.result(futureCredentials, 10 seconds) match {
         case Some(permission) =>
           val accessKeyID = permission.accessKeyId
