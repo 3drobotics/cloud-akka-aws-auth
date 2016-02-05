@@ -27,6 +27,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
 
   describe("Should get the credentials") {
     it ("get credentials") {
+      val roleName = awsConfig.getString("roleName")
       val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
       val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
       val httpResponseFuture = SignRequestForAWS.post(httpRequest)
@@ -34,7 +35,6 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
         case response:HttpResponse =>
           jsonPrint(response)
       }
-      val roleName = awsConfig.getString("roleName")
       val futureCredentials = AWSCredentials.get_Amazon_EC2_metadata_credentials(roleName)
       val credentials = Await.result(futureCredentials, 10 seconds)
       credentials.isEmpty shouldBe false
