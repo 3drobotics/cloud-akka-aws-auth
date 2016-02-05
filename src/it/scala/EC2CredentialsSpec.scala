@@ -28,7 +28,8 @@ class EC2CredentialsSpec extends FunSpec with Matchers{
   describe("Should get the credentials") {
     it ("get credentials") {
       val roleName = awsConfig.getString("roleName")
-      val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
+//      val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
+      val URI = s"""http://169.254.169.254/latest/meta-data/iam/"""
       val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
       val httpResponseFuture = SignRequestForAWS.post(httpRequest)
       httpResponseFuture map{

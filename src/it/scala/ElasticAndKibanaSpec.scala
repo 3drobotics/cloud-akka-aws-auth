@@ -59,6 +59,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
     )
     val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+    jsonPrint(response)
     response.status shouldBe StatusCodes.Created
   }
 
