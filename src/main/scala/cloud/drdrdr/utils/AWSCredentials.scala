@@ -1,17 +1,18 @@
-package io.dronekit.cloud.utils
+package cloud.drdrdr.utils
+
 /**
  * Created by Adam Villaflor on 11/30/2015.
  */
 
-import java.util.concurrent.TimeoutException
+
+import java.io.File
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.pattern.after
-import io.dronekit.cloud.SignRequestForAWS
-import spray.json.DefaultJsonProtocol
+import cloud.drdrdr.SignRequestForAWS
 import scala.io.Source
 import spray.json._
 import scala.concurrent.duration._
@@ -27,33 +28,33 @@ object AWSCredentials {
 
   case class AWSPermissions(accessKeyId: String, secretAccessKey: String, token: String = "")
 
-  def valid_credentials(key_id:Option[String], access_key:Option[String], token: Option[String] = Some("")): Option[AWSPermissions] = {
+  def validCredentials(key_id:Option[String], access_key:Option[String], token: Option[String] = Some("")): Option[AWSPermissions] = {
     if (key_id.isDefined && access_key.isDefined && key_id.get != null && access_key.get != null)
       Some(AWSPermissions(key_id.get, access_key.get, token.get))
     else None
   }
 
-  def get_envCredentials(): Option[AWSPermissions] = {
-    get_credentials_from_map(sys.env, "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+  def getEnvironmentCredentials(): Option[AWSPermissions] = {
+    getCredentialsFromMap(sys.env, "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
   }
 
-  def get_envCredentials_alt(): Option[AWSPermissions] = {
-    get_credentials_from_map(sys.env, "AWS_ACCESS_KEY", "AWS_SECRET_KEY")
+  def getEnvironmentAlternateCredentials(): Option[AWSPermissions] = {
+    getCredentialsFromMap(sys.env, "AWS_ACCESS_KEY", "AWS_SECRET_KEY")
   }
 
-  def get_credentials_from_map(environment:Map[String, String], key_id_key:String, access_key_key:String) = {
+  def getCredentialsFromMap(environment:Map[String, String], key_id_key:String, access_key_key:String) = {
     val key_id = environment.get(key_id_key)
     val access_key = environment.get(access_key_key)
-    valid_credentials(key_id, access_key)
+    validCredentials(key_id, access_key)
   }
 
-  def get_javaSysCredentials(): Option[AWSPermissions] = {
+  def getJavaSystemCredentials(): Option[AWSPermissions] = {
     val key_id = Some(System.getProperty("aws.accessKeyId"))
     val access_key = Some(System.getProperty("aws.secretKey"))
-    valid_credentials(key_id, access_key)
+    validCredentials(key_id, access_key)
   }
 
-  def get_specific_credentials_profile(credential_file:String, profile:String = "default"): Future[Option[AWSPermissions]] = {
+  def getSpecificCredentialsProfile(credential_file: String, profile: String = "default"): Future[Option[AWSPermissions]] = {
     val header = """\s*\[([^]]*)\]\s*""".r
     val keyValue = """\s*([^=]*)=(.*)""".r
     var access_key : Option[String] = None
@@ -79,37 +80,36 @@ object AWSCredentials {
           }
         } catch {
           case e: Exception =>
-            println( s"""${credential_file} file does not contain ${profile} or is improperly formatted""")
+            println( s"""$credential_file file does not contain $profile or is improperly formatted""")
         }
         source.close()
       } catch {
-        case e: Exception => println(s"""Could not open $credential_file due to ${e}""")
+        case e: Exception => println(s"""Could not open $credential_file due to $e""")
       }
 
-      valid_credentials(key_id, access_key)
+      validCredentials(key_id, access_key)
     }
   }
-  def get_credentials_profile(profile:String = "default"): Future[Option[AWSPermissions]] = {
+  def getCredentialsProfile(profile: String = "default"): Future[Option[AWSPermissions]] = {
     val home = System.getProperty("user.home")
-    val credential_file = home + "/.aws/credentials"
-    get_specific_credentials_profile(credential_file,profile)
+    val credential_file = home + File.separator +  ".aws" + File.separator + "credentials"
+    getSpecificCredentialsProfile(credential_file, profile)
   }
 
-  def get_Amazon_EC2_metadata_credentials(roleName:String, timeout:Int = 500): Future[Option[AWSPermissions]] = {
-    import DefaultJsonProtocol._
-    val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
+  def getAmazonEC2Credentials(roleName:String, timeout:Int = 500): Future[Option[AWSPermissions]] = {
+    val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/$roleName"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
     val httpResponseFuture = SignRequestForAWS.post(httpRequest)
     val ec2Credentials = httpResponseFuture flatMap{
       case response:HttpResponse =>
-        get_credentials_EC2_response(response)
+        getCredentialsEC2Response(response)
     }
     Future.firstCompletedOf(
       List(ec2Credentials,
         after(timeout milliseconds, system.scheduler)(Future {None})))
   }
 
-  def get_credentials_EC2_response(response: HttpResponse): Future[Option[AWSPermissions]] = {
+  def getCredentialsEC2Response(response: HttpResponse): Future[Option[AWSPermissions]] = {
     response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
       case responseInfo =>
         val responseData = responseInfo.mkString
@@ -127,16 +127,16 @@ object AWSCredentials {
         val js_token = jsonMap.get("Token")
         if (js_token.isDefined)
           token = Some(js_token.get.toString() replaceAll ("[\"]", ""))
-        valid_credentials(key_id, access_key, token) }
+        validCredentials(key_id, access_key, token) }
   }
 
-  def get_credentials(profile:String = "default", roleName:String = "", credential_file:String = ""): Future[Option[AWSPermissions]] = {
+  def getCredentials(profile:String = "default", roleName:String = "", credential_file:String = ""): Future[Option[AWSPermissions]] = {
     val p: Promise[Option[AWSPermissions]] = Promise()
-    val envCredentials = Future.successful(get_envCredentials())
-    val envCredentials_alt = Future.successful(get_envCredentials_alt())
-    val javaSysCredentials = Future.successful(get_javaSysCredentials())
-    val profileCredentials = if (credential_file == "") get_credentials_profile(profile) else get_specific_credentials_profile(credential_file, profile)
-    val ec2Credential = if (roleName.length > 0) get_Amazon_EC2_metadata_credentials(roleName) else Future{None}
+    val envCredentials = Future.successful(getEnvironmentCredentials())
+    val envCredentials_alt = Future.successful(getEnvironmentAlternateCredentials())
+    val javaSysCredentials = Future.successful(getJavaSystemCredentials())
+    val profileCredentials = if (credential_file == "") getCredentialsProfile(profile) else getSpecificCredentialsProfile(credential_file, profile)
+    val ec2Credential = if (roleName.length > 0) getAmazonEC2Credentials(roleName) else Future{None}
     val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentials_alt, javaSysCredentials, profileCredentials, ec2Credential)
     //    envCredentials.onComplete { case Success(perm) => if (perm.isDefined) perm
     //    else

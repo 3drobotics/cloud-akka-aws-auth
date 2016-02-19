@@ -1,17 +1,12 @@
-import java.util.UUID
-
-import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
-import akka.util.Timeout
-import io.dronekit.cloud.SignRequestForAWS
-import io.dronekit.cloud.utils.Config._
+import cloud.drdrdr._
 import org.scalatest._
-import scala.concurrent.duration._
-import spray.json._
 
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
+import scala.language.postfixOps
 
 /**
  * Created by Jason Martens <jason.martens@3drobotics.com> on 10/12/15.
@@ -52,29 +47,28 @@ class AWSKeySigningSpec extends FunSpec with Matchers {
 
     it("Should correctly sign a sample HTTP request") {
       val entity = HttpEntity("UserName=NewUser&Action=CreateUser&Version=2010-05-08")
+      val uri = Uri("https://iam.amazonaws.com/authenticate%20/?Param=%20with%20space&answer&Action=ListUsers")
       val request = HttpRequest(
         method = HttpMethods.POST,
-        uri = SignRequestForAWS.uriStringEncode("https://iam.amazonaws.com/authenticate%20/?Param=%20with%20space&answer&Action=ListUsers"),
+        uri = uri,
         entity = entity,
         headers = List(
           RawHeader("Content-Type", "application/x-www-form-urlencoded; charset=utf-8"),
           RawHeader("X-Amz-Date", "20110909T233600Z"))
       )
-      val
-      testForm = Await.result(
+      val testForm = Await.result(
         SignRequestForAWS.
           createCanonicalRequest(request), 10 seconds)
-      val
-      canonicalForm =
+      val canonicalForm =
         """POST
-                            |/authenticate%20/
-                            |Action=ListUsers&Param=%20with%20space&answer
-                            |content-type:application/x-www-form-urlencoded; charset=utf-8
-                            |host:iam.amazonaws.com
-                            |x-amz-date:20110909T233600Z
-                            |
-                            |content-type;host;x-amz-date
-                            |5452b78ac0196aa80feaf208a7893de87f06618d602fa25024832230a4b34c53""".stripMargin.replaceAll("\r", "")
+          |/authenticate%20/
+          |Action=ListUsers&Param=%20with%20space&answer
+          |content-type:application/x-www-form-urlencoded; charset=utf-8
+          |host:iam.amazonaws.com
+          |x-amz-date:20110909T233600Z
+          |
+          |content-type;host;x-amz-date
+          |5452b78ac0196aa80feaf208a7893de87f06618d602fa25024832230a4b34c53""".stripMargin.replaceAll("\r", "")
       testForm shouldBe canonicalForm
     }
 

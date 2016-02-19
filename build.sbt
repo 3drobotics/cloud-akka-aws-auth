@@ -1,10 +1,10 @@
-name := "AkkaHttpAWSAuth"
+name := "akka-http-aws-auth"
 
-version := "1.0"
+version := "1.1"
 
 scalaVersion := "2.11.7"
 
-organization := "io.dronekit"
+organization := "cloud.drdrdr"
 
 Defaults.itSettings
 lazy val `AkkaHttpAWSAuth` = project.in(file(".")).configs(IntegrationTest)
@@ -23,19 +23,17 @@ publishTo := {
 
 
 libraryDependencies ++= {
-  val akkaV = "2.3.12"
-  val akkaStreamV = "1.0"
-  val scalaTestV = "2.2.4"
+  val akkaV = "2.4.2"
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
-    "com.typesafe.akka" %% "akka-stream-experimental" % akkaStreamV,
-    "com.typesafe.akka" %% "akka-http-core-experimental" % akkaStreamV,
-    "com.typesafe.akka" %% "akka-http-experimental" % akkaStreamV,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaStreamV,
+    "com.typesafe.akka" %% "akka-stream" % akkaV,
+    "com.typesafe.akka" %% "akka-http-core" % akkaV,
+    "com.typesafe.akka" %% "akka-http-experimental" % akkaV,
+    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaV,
+    "com.typesafe.akka" %% "akka-http-testkit" % akkaV,
     "io.spray" %%  "spray-json" % "1.3.2",
     "commons-codec" % "commons-codec" % "1.6",
-    "com.typesafe.akka" %% "akka-http-testkit-experimental" % akkaStreamV,
-    "org.scalatest" %% "scalatest" % scalaTestV % "it,test",
+    "org.scalatest" %% "scalatest" % "2.2.4" % "it,test",
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2" % "it,test",
     "org.specs2" %% "specs2-core" % "2.4.14" % "it,test",
     "ch.qos.logback" % "logback-classic" % "1.1.3",
