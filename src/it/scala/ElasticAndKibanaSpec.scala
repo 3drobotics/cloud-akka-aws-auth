@@ -1,35 +1,48 @@
 import java.util.UUID
 
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import cloud.drdrdr.SignRequestForAWS
 import cloud.drdrdr.utils.AWSCredentials
 import cloud.drdrdr.utils.Config.awsConfig
 import org.scalatest._
 import spray.json._
-
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Future, Await, ExecutionContext}
 import scala.language.postfixOps
+
 
 /**
  * Created by Adam Villaflor <adam.villaflor@3drobotics.com> on 11/11/15.
  *
  */
-class ElasticAndKibanaSpec extends FunSpec with Matchers {
+class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
   implicit val testSystem = akka.actor.ActorSystem("test-system")
   implicit val ec: ExecutionContext = testSystem.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  // helps for debugging
-  def jsonPrint(response: HttpResponse) {
+  //helps for debugging
+  private def jsonPrint(response: HttpResponse) {
     val responseData =  Await.result(response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head), 10 seconds).mkString
     val responseJson = responseData.parseJson
     println(responseJson.prettyPrint)
   }
 
-  val futureCredentials = AWSCredentials.getCredentials(roleName = awsConfig.getString("roleName"))
+  //sends outgoing request
+  private def post(httpRequest: HttpRequest): Future[HttpResponse] = {
+    val endpoint = httpRequest.uri.toString()
+    val uri = java.net.URI.create(endpoint)
+    val outgoingConn = if (uri.getScheme() == "https") {
+      Http().outgoingConnectionTls(uri.getHost, if (uri.getPort == -1) 443 else uri.getPort)
+    } else {
+      Http().outgoingConnection(uri.getHost, if (uri.getPort == -1) 80 else uri.getPort)
+    }
+    Source.single(httpRequest).via(outgoingConn).runWith(Sink.head)
+  }
+
+  val futureCredentials = AWSCredentials.getCredentials()
   var accessKeyID = ""
   var kSecret = ""
   var token = ""
@@ -57,9 +70,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       uri = URI,
       entity = entity
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
-    val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
-    jsonPrint(response)
+    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
+    val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.Created
   }
 
@@ -72,8 +84,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
-    val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+    val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
   it ("should be a sucessful get request of the posted information") {
@@ -85,8 +97,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
-    val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+    val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
 
@@ -99,8 +111,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers {
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(SignRequestForAWS.addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 15 seconds)
-    val response = Await.result(SignRequestForAWS.post(authRequest), 10 seconds)
+    val authRequest = Await.result(addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 15 seconds)
+    val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
 }
