@@ -100,6 +100,7 @@ trait SignRequestForAWS {
 
   /**
    * adds the authorizations header to an httpRequest as described in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
+  // in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
    * @param httpRequest the original requests without the authorization header
    * @param key an aws secret key
    * @param region the region you are using for the aws service
@@ -126,6 +127,7 @@ trait SignRequestForAWS {
 
   /**
    * adds the authorization query to the uri for aws services as described in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
+  // in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
    * @param httpRequest the original requests without the authorization query
    * @param key an aws secret key
    * @param region the region you are using for the aws service
@@ -163,46 +165,17 @@ trait SignRequestForAWS {
   }
 
   //  all other amazon related headers should be in the uri
-  //   adds all the params and values for the query string
+  //  adds all the params and values for the query string
   // http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
   protected def uriQuery(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String,
                expires: Int, token: String): Query = {
-    val params: Map[String, String] = httpRequest.uri.query.toMap +("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
+    val params: Map[String, String] = httpRequest.uri.query().toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
       "X-Amz-Date" -> date, "X-Amz-Expires" -> expires.toString, "X-Amz-SignedHeaders" -> signedHeaders)
     if (token.isEmpty)
       Uri.Query(params)
     else
       Uri.Query(params + ("X-Amz-Security-Token" -> token))
   }
-
-//  protected def uriString(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String, expires:Int, token:String)
-//                         (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
-//    var params = httpRequest.uri.query.toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
-//      "X-Amz-Date" -> date, "X-Amz-Expires" -> expires.toString, "X-Amz-SignedHeaders" -> signedHeaders)
-//    if (token.length > 0) {
-//      params = params + ("X-Amz-Security-Token" -> token)
-//    }
-//    Query(params).toString()
-//  }
-
-//  //converts / to %2F
-//  protected def uriEncode(uri: Uri)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Uri = {
-//    uriStringEncode(uri.withQuery(Query(uri.query.toString().replace("/", "%2F"), Charset.forName("UTF8"), Uri.ParsingMode.RelaxedWithRawQuery)).toString())
-//  }
-//
-//  // url encodes symbols
-//  protected def uriStringEncode(uriString: String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Uri = {
-//    import java.net
-//    Uri(net.URI.create(uriString).toASCIIString, Uri.ParsingMode.RelaxedWithRawQuery)
-//  }
-//
-//  // creates a valid uri by replacing spaces with %20 and sorting the query string by ascii values
-//  protected def createUri(uri: Uri)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Uri = {
-//    uriEncode(Uri(uri.scheme, uri.authority,
-//      Path(uri.path.toString()),
-//      Query(uri.query.toString().split('&').sorted.mkString("&")),
-//      uri.fragment))
-//  }
 
   //SHA hashes the payload
   protected def signPayload(payload: String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
@@ -219,7 +192,7 @@ trait SignRequestForAWS {
   }
 
   //Generate a canonical request string as defined in
-  //http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+  // http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
   protected def createCanonicalRequest(httpRequest: HttpRequest)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[String] = {
     val contentsFuture =
       if (httpRequest.entity.isKnownEmpty()) Future.successful("")
@@ -227,7 +200,7 @@ trait SignRequestForAWS {
     contentsFuture.map { entity =>
       s"""${httpRequest.method.name}
          |${httpRequest.uri.path.toString}
-         |${generateValidUriQuery(httpRequest.uri.query)}
+         |${generateValidUriQuery(httpRequest.uri.query())}
          |${generateCanonicalHeaders(httpRequest.headers :+ RawHeader("host", httpRequest.uri.authority.host.toString))}
          |${signPayload(entity)}""".stripMargin
     }
@@ -258,19 +231,19 @@ trait SignRequestForAWS {
     }
   }
 
-  //runs same algorithm as sign payload but on the canonicalRequest
+  // runs same algorithm as sign payload but on the canonicalRequest
   protected def hashCanonicalRequest(canonicalRequest: String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
     val md = MessageDigest.getInstance("SHA-256")
     md.update(canonicalRequest.getBytes("UTF-8"))
     Hex.encodeHexString(md.digest())
   }
 
-  //finds the relevant fields in the http request and returns the credential scope
+  // finds the relevant fields in the http request and returns the credential scope
   protected def getCredentialScope(noHmsDate: String, region: String, service: String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
     noHmsDate + "/" + region + "/" + service + "/" + "aws4_request"
   }
 
-  //gets the date from the  x-amz-date header without HHmmss
+  // gets the date from the  x-amz-date header without HHmmss
   protected def getNoHmsDate(httpRequest: HttpRequest)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
     httpRequest.headers
       .filter(_.lowercaseName() == "x-amz-date")

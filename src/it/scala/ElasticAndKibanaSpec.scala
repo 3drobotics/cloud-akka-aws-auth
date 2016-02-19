@@ -34,8 +34,8 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
   private def post(httpRequest: HttpRequest): Future[HttpResponse] = {
     val endpoint = httpRequest.uri.toString()
     val uri = java.net.URI.create(endpoint)
-    val outgoingConn = if (uri.getScheme() == "https") {
-      Http().outgoingConnectionTls(uri.getHost, if (uri.getPort == -1) 443 else uri.getPort)
+    val outgoingConn = if (uri.getScheme == "https") {
+      Http().outgoingConnectionHttps(uri.getHost, if (uri.getPort == -1) 443 else uri.getPort)
     } else {
       Http().outgoingConnection(uri.getHost, if (uri.getPort == -1) 80 else uri.getPort)
     }
