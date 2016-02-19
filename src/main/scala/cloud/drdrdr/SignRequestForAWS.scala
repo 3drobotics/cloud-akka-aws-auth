@@ -1,6 +1,5 @@
-package io.dronekit.cloud
+package cloud.drdrdr
 
-import java.nio.charset.Charset
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.{Date, SimpleTimeZone}
@@ -30,7 +29,8 @@ object SignRequestForAWS {
 
   /**
    * Generate a canonical string representation of the request headers
-   * @param headers List of headers to include
+    *
+    * @param headers List of headers to include
    * @return
    */
   def generateCanonicalHeaders(headers: Seq[HttpHeader]): String = {
@@ -69,7 +69,6 @@ object SignRequestForAWS {
     headerList.map(_._1).mkString(";")
   }
 
-
   def HmacSHA256(data: String, key: Array[Byte]): Array[Byte] = {
     val algorithm: String = "HmacSHA256"
     val mac: Mac = Mac.getInstance(algorithm)
@@ -99,7 +98,7 @@ object SignRequestForAWS {
       val stringToSign = createStringToSign(httpRequest, canonicalRequest,region, service)
       val signatureKey = getSignatureKey(key, noHmsDate, region, service)
       val signature = getSignature(signatureKey, stringToSign)
-      val credential = accessKeyId + "/" + getCredentialScope(noHmsDate, region, service)
+      val credential = accessKeyId.trim + "/" + getCredentialScope(noHmsDate, region, service)
       val signedHeaders = getSignedHeaders(httpRequest.headers, httpRequest.uri)
       val algorithm = "AWS4-HMAC-SHA256"
       algorithm + " Credential=" + credential + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature
@@ -113,7 +112,7 @@ object SignRequestForAWS {
       tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
     }
     val request = tokenRequest.withHeaders( tokenRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
-                    .withUri(uriEncode(httpRequest.uri))
+                    .withUri(httpRequest.uri)
     val authHeaderFuture = createAuthorizationHeader(request, key, region, accessKeyId, service)
     authHeaderFuture.map { authHeader => request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader))
     }
@@ -131,46 +130,30 @@ object SignRequestForAWS {
     val algorithm = "AWS4-HMAC-SHA256"
     val credential = accessKeyId + "/" + getCredentialScope(noHmsDate, region, service)
     val signedHeaders = getSignedHeaders(datedRequest.headers, httpRequest.uri)
-    val qString = uriString(datedRequest, date, algorithm, credential, signedHeaders, expires, token)
-    val URI = uriEncode(httpRequest.uri.withQuery(qString))
-    val tempRequest = datedRequest.withUri(URI)
+    val query = uriQuery(datedRequest, date, algorithm, credential, signedHeaders, expires, token)
+//    val URI = uriEncode()
+    val tempRequest = datedRequest.withUri(httpRequest.uri.withQuery(query))
     val canonicalRequestFuture: Future[String] = createCanonicalRequest(tempRequest)
     canonicalRequestFuture.map { canonicalRequest =>
       val stringToSign = createStringToSign(tempRequest, canonicalRequest, region, service)
       val signatureKey = getSignatureKey(key, noHmsDate, region, service)
       val signature = getSignature(signatureKey, stringToSign)
-      val qStringSigned = qString + "&X-Amz-Signature=" + signature
-      val URISigned = uriEncode(httpRequest.uri.withQuery(qStringSigned))
+      val signedQuery: Uri.Query = query.+:("X-Amz-Signature", signature)
+      val URISigned = httpRequest.uri.withQuery(signedQuery)
       tempRequest.withUri(URISigned)
     }
   }
 
   //TODO add arbitrary items to query string
   // adds all the params and values for the query string
-  def uriString(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String, expires:Int, token:String): String = {
-    var params = httpRequest.uri.query.toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
+  def uriQuery(httpRequest: HttpRequest, date: String, algorithm: String, credential: String, signedHeaders: String,
+               expires: Int, token: String): Query = {
+    val params: Map[String, String] = httpRequest.uri.query().toMap + ("X-Amz-Algorithm" -> algorithm, "X-Amz-Credential" -> credential,
       "X-Amz-Date" -> date, "X-Amz-Expires" -> expires.toString, "X-Amz-SignedHeaders" -> signedHeaders)
-    if (token.length > 0) {
-      params = params + ("X-Amz-Security-Token" -> token)
-    }
-    Query(params).toString()
-  }
-
-  def uriEncode(uri: Uri): Uri = {
-    uriStringEncode(uri.withQuery(Query(uri.query.toString().replace("/", "%2F"), Charset.forName("UTF8"), Uri.ParsingMode.RelaxedWithRawQuery)).toString())
-  }
-
-  def uriStringEncode(uriString: String): Uri = {
-    import java.net
-    Uri(net.URI.create(uriString).toASCIIString, Uri.ParsingMode.RelaxedWithRawQuery)
-  }
-
-  // creates a valid uri by replacing spaces with %20 and sorting the query string by ascii values
-  def createUri(uri: Uri): Uri = {
-    uriEncode(Uri(uri.scheme, uri.authority,
-      Path(uri.path.toString()),
-      Query(uri.query.toString().split('&').sorted.mkString("&")),
-      uri.fragment))
+    if (token.isEmpty)
+      Uri.Query(params)
+    else
+      Uri.Query(params + ("X-Amz-Security-Token" -> token))
   }
 
   //SHA hashes the payload
@@ -180,10 +163,16 @@ object SignRequestForAWS {
     Hex.encodeHexString(md.digest())
   }
 
-  /**
+  // Akka URI encoding replaces spaces with +, but Amazon needs %20
+  def generateValidUriQuery(query: Query): String = {
+    query.toString.split('&').sorted.mkString("&").replace("+", "%20")
+  }
+
+   /**
    * Generate a canonical request string as defined in
    * http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
-   * @param httpRequest The request to generate the string from
+    *
+    * @param httpRequest The request to generate the string from
    * @return A canonical string representation of the request to be used for signing
    */
   def createCanonicalRequest(httpRequest: HttpRequest): Future[String] = {
@@ -192,18 +181,14 @@ object SignRequestForAWS {
       else httpRequest.entity.dataBytes.map(_.utf8String).runWith(Sink.head)
     contentsFuture.map { entity =>
       s"""${httpRequest.method.name}
-         |${httpRequest.uri.path.toString()}
-         |${generateValidUriQuery(httpRequest.uri.query)}
-         |${generateCanonicalHeaders(httpRequest.headers :+ RawHeader("host", httpRequest.uri.authority.host.toString()))}
+         |${httpRequest.uri.path.toString}
+         |${generateValidUriQuery(httpRequest.uri.query())}
+         |${generateCanonicalHeaders(httpRequest.headers :+ RawHeader("host", httpRequest.uri.authority.host.toString))}
          |${signPayload(entity)}""".stripMargin
     }
   }
 
-  // replaces spaces with %20 and sorts the query parameters
-  def generateValidUriQuery(query: Query): String = {
-    query.toString().split('&').sorted
-      .mkString("&")
-  }
+
 
 
   // creates the string to sign based on aws protocol
@@ -266,8 +251,8 @@ object SignRequestForAWS {
   def post(httpRequest: HttpRequest): Future[HttpResponse] = {
     val endpoint = httpRequest.uri.toString()
     val uri = java.net.URI.create(endpoint)
-    val outgoingConn = if (uri.getScheme() == "https") {
-      Http().outgoingConnectionTls(uri.getHost, if (uri.getPort == -1) 443 else uri.getPort)
+    val outgoingConn = if (uri.getScheme == "https") {
+      Http().outgoingConnectionHttps(uri.getHost, if (uri.getPort == -1) 443 else uri.getPort)
     } else {
       Http().outgoingConnection(uri.getHost, if (uri.getPort == -1) 80 else uri.getPort)
     }

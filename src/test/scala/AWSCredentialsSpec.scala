@@ -1,7 +1,6 @@
 import akka.stream.ActorMaterializer
+import cloud.drdrdr.utils.AWSCredentials
 import org.scalatest.{Matchers, FunSpec}
-
-import io.dronekit.cloud.utils.AWSCredentials
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -36,18 +35,18 @@ class AWSCredentialsSpec extends FunSpec with Matchers {
 //  }
 //  describe("Should get the credentials in the right order") {
       it ("using specific profile in ~/.aws/credentials") {
-        val  testPermission = Some(AWSCredentials.AWSPermissions("AKIAIOSFODNN7EXAMPL2", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKE2"))
-        val futureCredentials = AWSCredentials.get_credentials_profile("mav")
+        val testPermission = Some(AWSCredentials.AWSPermissions("AKIAIOSFODNN7EXAMPL2", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKE2"))
+        val futureCredentials = AWSCredentials.getCredentialsProfile("mav")
         val credentials = Await.result(futureCredentials, 10 seconds)
         credentials shouldBe testPermission
       }
       it ("using default profile in ~/.aws/credentials") {
-        val futureCredentials2 = AWSCredentials.get_credentials_profile()
+        val futureCredentials2 = AWSCredentials.getCredentialsProfile()
         val credentials2 = Await.result(futureCredentials2, 10 seconds)
         credentials2.isEmpty shouldBe false
       }
       it ("by going through the whole chain without failing") {
-        val futureCredentials2 = AWSCredentials.get_credentials()
+        val futureCredentials2 = AWSCredentials.getCredentials()
         val credentials2 = Await.result(futureCredentials2, 10 seconds)
         credentials2.isEmpty shouldBe false
       }
