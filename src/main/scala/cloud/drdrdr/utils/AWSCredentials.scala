@@ -98,10 +98,10 @@ trait AWSCredentials {
               case header(head) =>
                 if (head.equals(profile)) {
                   lines.next() match {
-                    case keyValue(key, value) => key_id = Some(value)
+                    case keyValue(key, value) => key_id = Some(value.trim())
                   }
                   lines.next() match {
-                    case keyValue(key, value) => access_key = Some(value)
+                    case keyValue(key, value) => access_key = Some(value.trim())
                   }
                 }
               case _ => ;
