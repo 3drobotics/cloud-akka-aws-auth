@@ -236,7 +236,15 @@ trait AWSCredentials {
     val ec2Credential = getAmazonEC2Credentials()
     val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentials_alt, javaSysCredentials, profileCredentials, ec2Credential)
 
-    Future.sequence(credentialProviderList).map(_ collectFirst { case Some(x) => x})
+    futureList(credentialProviderList, 0)
+  }
+
+  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]], index: Int)
+                        (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
+    futureSeq(index) flatMap  {
+      case Some(result) => Future.successful(Some(result))
+      case None => if (index == futureSeq.length - 1) Future.successful(None) else futureList(futureSeq, index + 1)
+    }
   }
 
   //sends outgoing request
