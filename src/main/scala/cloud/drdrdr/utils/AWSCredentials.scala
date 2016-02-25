@@ -188,7 +188,7 @@ trait AWSCredentials {
             if (js_instance_profile.isDefined) {
               val instance_sections = js_instance_profile.get.toString().split("/")
               if (instance_sections.nonEmpty)
-                role = Some(instance_sections.last)
+                role = Some(instance_sections.last replaceAll ("[\"]", ""))
             }
             role
         }
