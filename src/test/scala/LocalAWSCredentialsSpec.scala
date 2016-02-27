@@ -21,23 +21,27 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
   describe ("should get the credentials") {
     it ("should get credentials from mock environment map") {
       val map = sys.env
-      val updated_map = map + ("AWS_ACCESS_KEY_ID" -> "AKIAIOSFODNN7EXAMPLE", "AWS_SECRET_ACCESS_KEY" -> "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-      val testCredentials = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-      val credentials = getCredentialsFromMap(updated_map, "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
-      credentials shouldBe testCredentials
+      val updatedMap = map + ("AWS_ACCESS_KEY_ID" -> "AKIAIOSFODNN7EXAMPLE", "AWS_SECRET_ACCESS_KEY" -> "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val credentials = getCredentialsFromMap(updatedMap, "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+      credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
+      credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
+      credentials.get.token shouldBe testCredentials.get.token
     }
     it ("should get credentials from alternate mock environment map") {
       val map = sys.env
-      val updated_map = map + ("AWS_ACCESS_KEY" -> "AKIAIOSFODNN7EXAMPLE", "AWS_SECRET_KEY" -> "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-      val testCredentials = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-      val credentials = getCredentialsFromMap(updated_map, "AWS_ACCESS_KEY", "AWS_SECRET_KEY")
-      credentials shouldBe testCredentials
+      val updatedMap = map + ("AWS_ACCESS_KEY" -> "AKIAIOSFODNN7EXAMPLE", "AWS_SECRET_KEY" -> "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val credentials = getCredentialsFromMap(updatedMap, "AWS_ACCESS_KEY", "AWS_SECRET_KEY")
+      credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
+      credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
+      credentials.get.token shouldBe testCredentials.get.token
     }
     it ("should get credentials from java system properties") {
       val properties = System.getProperties()
       properties.setProperty("aws.accessKeyId", "AKIAIOSFODNN7EXAMPLE")
       properties.setProperty("aws.secretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-      val testCredentials = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
       val credentials = AWSCredentials.getJavaSystemCredentials()
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
@@ -52,7 +56,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       val futureCredentials = AWSCredentials.getSpecificCredentialsProfile(uuidFile.toString)
       val credentials = Await.result(futureCredentials, 10 seconds)
       uuidFile.delete()
-      val testCredentials = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
@@ -62,10 +66,12 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       val response = HttpResponse(
         entity = entity
       )
-      val testCredentials = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "test"))
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "test"))
       val futureCredentials = getCredentialsEC2Response(response)
       val credentials = Await.result(futureCredentials, 10 seconds)
-      credentials shouldBe testCredentials
+      credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
+      credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
+      credentials.get.token shouldBe testCredentials.get.token
     }
     it ("tests ordering of credentials") {
       val home = System.getProperty("user.home")
@@ -74,9 +80,9 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       val writer = new PrintWriter(f)
       writer.write("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
       writer.close()
-      val futureCredentials = AWSCredentials.getCredentials(credential_file = uuidFile)
+      val futureCredentials = AWSCredentials.getCredentials(credentialFile = uuidFile)
       val credentials2 = Await.result(futureCredentials, 10 seconds)
-      val testCredentials2 = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val testCredentials2 = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
 
       credentials2.get.accessKeyId shouldBe testCredentials2.get.accessKeyId
       credentials2.get.secretAccessKey shouldBe testCredentials2.get.secretAccessKey
@@ -85,8 +91,8 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       val properties = System.getProperties()
       properties.setProperty("aws.accessKeyId", "AKIAIOSFODNN7EXAMPLE")
       properties.setProperty("aws.secretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-      val testCredentials1 = Some(AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-      val credentials1 = Await.result(AWSCredentials.getCredentials(credential_file = uuidFile), 10 seconds)
+      val testCredentials1 = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+      val credentials1 = Await.result(AWSCredentials.getCredentials(credentialFile = uuidFile), 10 seconds)
       f.delete()
       credentials1.get.accessKeyId shouldBe testCredentials1.get.accessKeyId
       credentials1.get.secretAccessKey shouldBe testCredentials1.get.secretAccessKey
