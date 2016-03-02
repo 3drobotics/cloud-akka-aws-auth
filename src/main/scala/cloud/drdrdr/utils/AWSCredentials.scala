@@ -225,31 +225,26 @@ trait AWSCredentials {
         validCredentials(keyId, accessKey) }
   }
 
-  //gets the role name off the ec2 instance
-  protected def getAmazonEC2RoleName(timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[String]] = {
-    val URI = s"""http://169.254.169.254/latest/meta-data/iam/info"""
-    val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
-    val httpResponseFuture = post(httpRequest)
-    val roleName = httpResponseFuture flatMap {
-      case response:HttpResponse =>
-        response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
-          case responseInfo =>
-            val responseData = responseInfo.mkString
-            val responseJson = responseData.parseJson
-            var role: Option[String] = None
-            val jsonMap = responseJson.asJsObject().fields
-            val jsInstanceProfile = jsonMap.get("InstanceProfileArn")
-            if (jsInstanceProfile.isDefined) {
-              val instanceSections = jsInstanceProfile.get.toString().split("/")
-              if (instanceSections.nonEmpty)
-                role = Some(instanceSections.last replaceAll ("[\"]", ""))
-            }
-            role
+  // gets the role name off the ec2 instance
+  protected def getAmazonEC2RoleName(timeout: Int = 500)
+                                    (implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer):
+  Future[Option[String]] = {
+    import DefaultJsonProtocol._
+    import spray.json._
+
+    val request = HttpRequest(HttpMethods.GET, "http://169.254.169.254/latest/meta-data/iam/info")
+    val instanceFuture = Http().singleRequest(request).flatMap{ response =>
+      response.entity.dataBytes
+        .fold(ByteString.empty)(_ ++ _)
+        .map(_.utf8String)
+        .runWith(Sink.head)
+        .map(_.parseJson)
+        .map{_.asJsObject.fields.get("InstanceProfileArn")
+            .map(_.toString().split("/").last.replaceAll("[\"]", ""))
         }
     }
     Future.firstCompletedOf(
-      List(roleName,
-        after(timeout milliseconds, system.scheduler)(Future {None})))
+      List(instanceFuture, after(timeout milliseconds, s.scheduler)(Future.successful(None))))
   }
 
   /**
@@ -290,14 +285,17 @@ trait AWSCredentials {
     val ec2Credential = getAmazonEC2Credentials()
     val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentialsAlt, javaSysCredentials, profileCredentials, ec2Credential)
 
-    futureList(credentialProviderList, 0)
+    futureList(credentialProviderList)
   }
 
-  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]], index: Int)
-                        (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
-    futureSeq(index) flatMap  {
+  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]])
+                        (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer):
+  Future[Option[AWSPermissions]] = {
+    futureSeq.head flatMap  {
       case Some(result) => Future.successful(Some(result))
-      case None => if (index == futureSeq.length - 1) Future.successful(None) else futureList(futureSeq, index + 1)
+      case None =>
+        if (futureSeq.isEmpty) Future.successful(None)
+        else futureList(futureSeq.tail)
     }
   }
 
