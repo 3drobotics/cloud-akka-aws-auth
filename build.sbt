@@ -1,6 +1,6 @@
 name := "akka-http-aws-auth"
 
-version := "1.1"
+version := "1.3"
 
 scalaVersion := "2.11.7"
 
@@ -23,7 +23,7 @@ publishTo := {
 
 
 libraryDependencies ++= {
-  val akkaV = "2.4.2"
+  val akkaV = "2.4-SNAPSHOT"
   Seq(
     "com.typesafe.akka" %% "akka-actor" % akkaV,
     "com.typesafe.akka" %% "akka-stream" % akkaV,
