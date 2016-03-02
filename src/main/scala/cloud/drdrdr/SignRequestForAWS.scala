@@ -67,6 +67,7 @@ trait SignRequestForAWS {
     mac.doFinal(data.getBytes("UTF8"))
   }
 
+
   //creates the signature using the required fields
   protected def getSignatureKey(key: String, dateStamp: String, regionName: String, serviceName: String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Array[Byte] = {
     val kSecret: Array[Byte] = ("AWS4" + key).getBytes("UTF8")
@@ -118,11 +119,12 @@ trait SignRequestForAWS {
     if (token.length() > 0) {
       tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
     }
+
     val request = tokenRequest.withHeaders( tokenRequest.headers :+ RawHeader("x-amz-date", getUTCTime()))
-                    .withUri(httpRequest.uri)
+      .withUri(httpRequest.uri)
     val authHeaderFuture = createAuthorizationHeader(request, key, region, accessKeyId, service)
-    authHeaderFuture.map { authHeader => request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader))
-    }
+    authHeaderFuture.map(authHeader =>
+      request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader)))
   }
 
   /**
