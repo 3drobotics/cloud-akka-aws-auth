@@ -487,7 +487,7 @@ trait AWSCredentials {
 
   // got utc time for amz date from http://stackoverflow.com/questions/25991892/how-do-i-format-time-to-utc-time-zone
   // got formatting from http://stackoverflow.com/questions/5377790/date-conversion
-  // formatting based on convention for amz signing
+  // formatting based on convention for amazon signing
   protected def getUTCTime(): String = {
     val date = new Date()
     val format1 = new SimpleDateFormat("yyyy-MM-dd")
