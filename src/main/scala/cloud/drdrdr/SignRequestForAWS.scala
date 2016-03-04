@@ -14,6 +14,8 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import org.apache.commons.codec.binary.Hex
 
+import cloud.drdrdr.utils.AWSCredentials.updatingAWSPermissions
+
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
@@ -122,6 +124,26 @@ trait SignRequestForAWS {
                     .withUri(httpRequest.uri)
     val authHeaderFuture = createAuthorizationHeader(request, key, region, accessKeyId, service)
     authHeaderFuture.map { authHeader => request.withHeaders(request.headers :+ RawHeader("Authorization", authHeader))
+    }
+  }
+
+  /**
+   * uses an updatingAWSPermission to sign your requests
+   * @param httpRequest the original requests without the authorization header
+   * @param region the region you are using for the aws service
+   * @param service the aws service the request is being sent to
+   * @param updatingPermissions updatingAWSPermissions that has your accessKeyId, secretAccessKey, and token
+   * @param ec implicit execution context
+   * @param system implicit actor system
+   * @param materializer implicit actor materializer
+   * @return the httpRequest with the authorization header added
+   */
+  def addAuthorizationHeaderFromUpdatingCredentials(httpRequest: HttpRequest, region: String, service: String, updatingPermissions :updatingAWSPermissions)
+                                                   (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[HttpRequest] = {
+    val credentialList: Future[List[String]] = Future.sequence(List(updatingPermissions.accessKeyId, updatingPermissions.secretAccessKey, updatingPermissions.token))
+    credentialList flatMap {
+      case (List(key, accessKeyId, token)) =>
+        addAuthorizationHeader(httpRequest, key, region, accessKeyId, service, token)
     }
   }
 

@@ -46,11 +46,13 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
   var accessKeyID = ""
   var kSecret = ""
   var token = ""
+  var expiration = ""
   Await.result(futureCredentials, 10 seconds) match {
     case Some(credentials) =>
-      accessKeyID = credentials.accessKeyId
-      kSecret = credentials.secretAccessKey
-      token = credentials.token
+      accessKeyID = Await.result(credentials.accessKeyId, 10 seconds)
+      kSecret = Await.result(credentials.secretAccessKey, 10 seconds)
+      token = Await.result(credentials.token, 10 seconds)
+      expiration = Await.result(credentials.expiration, 10 seconds)
     case None => ;
   }
   val uuid = UUID.randomUUID().toString

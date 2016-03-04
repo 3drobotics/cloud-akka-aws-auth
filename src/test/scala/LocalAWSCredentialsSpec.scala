@@ -62,7 +62,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials.get.token shouldBe testCredentials.get.token
     }
     it ("should get credentials from httpResponse") {
-      val entity = HttpEntity("{\"AccessKeyId\":\"AKIAIOSFODNN7EXAMPLE\",\n\"SecretAccessKey\":\"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\n,\"Token\":\"test\"\n}")
+      val entity = HttpEntity("{\"AccessKeyId\":\"AKIAIOSFODNN7EXAMPLE\",\n\"SecretAccessKey\":\"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\n,\"Token\":\"test\"\n,\"Expiration\":\"test\"\n }")
       val response = HttpResponse(
         entity = entity
       )
@@ -81,22 +81,22 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       writer.write("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
       writer.close()
       val futureCredentials = AWSCredentials.getCredentials(credentialFile = uuidFile)
-      val credentials2 = Await.result(futureCredentials, 10 seconds)
+      val credentials2 = Await.result(futureCredentials, 10 seconds).get.removeFuture()
       val testCredentials2 = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
 
-      credentials2.get.accessKeyId shouldBe testCredentials2.get.accessKeyId
-      credentials2.get.secretAccessKey shouldBe testCredentials2.get.secretAccessKey
-      credentials2.get.token shouldBe testCredentials2.get.token
+      credentials2.accessKeyId shouldBe testCredentials2.get.accessKeyId
+      credentials2.secretAccessKey shouldBe testCredentials2.get.secretAccessKey
+      credentials2.token shouldBe testCredentials2.get.token
 
       val properties = System.getProperties()
       properties.setProperty("aws.accessKeyId", "AKIAIOSFODNN7EXAMPLE")
       properties.setProperty("aws.secretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
       val testCredentials1 = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-      val credentials1 = Await.result(AWSCredentials.getCredentials(credentialFile = uuidFile), 10 seconds)
+      val credentials1 = Await.result(AWSCredentials.getCredentials(credentialFile = uuidFile), 10 seconds).get.removeFuture()
       f.delete()
-      credentials1.get.accessKeyId shouldBe testCredentials1.get.accessKeyId
-      credentials1.get.secretAccessKey shouldBe testCredentials1.get.secretAccessKey
-      credentials1.get.token shouldBe testCredentials1.get.token
+      credentials1.accessKeyId shouldBe testCredentials1.get.accessKeyId
+      credentials1.secretAccessKey shouldBe testCredentials1.get.secretAccessKey
+      credentials1.token shouldBe testCredentials1.get.token
     }
     it ("by going through the whole chain without failing") {
       val futureCredentials2 = AWSCredentials.getCredentials()

@@ -42,18 +42,18 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
 
   describe("Should") {
     it ("get credentials") {
-      val futureCredentials = AWSCredentials.getAmazonEC2Credentials()
+      val futureCredentials = AWSCredentials.getUpdatingAmazonEC2Credentials()
       val credentials = Await.result(futureCredentials, 10 seconds)
       credentials.isEmpty shouldBe false
     }
     it ("send a request") {
-      val futureCredentials = AWSCredentials.getAmazonEC2Credentials()
+      val futureCredentials = AWSCredentials.getUpdatingAmazonEC2Credentials()
       Await.result(futureCredentials, 10 seconds) match {
         case Some(permission) =>
-          val accessKeyID = permission.accessKeyId
-          val kSecret = permission.secretAccessKey
-          println(accessKeyID)
-          val token = permission.token
+//          val accessKeyID = permission.accessKeyId
+//          val kSecret = permission.secretAccessKey
+//          println(accessKeyID)
+//          val token = permission.token
           val baseURI = awsConfig.getString("URI")
           val service = awsConfig.getString("service")
           val region = awsConfig.getString("region")
@@ -62,7 +62,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
             method = HttpMethods.GET,
             uri = URI
           )
-          val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+          val authRequest = Await.result(addAuthorizationHeaderFromUpdatingCredentials(request, region, service, permission), 15 seconds)
           println(authRequest)
           val response = Await.result(post(authRequest), 10 seconds)
           jsonPrint(response)
@@ -75,11 +75,11 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
       val futureCredentials = AWSCredentials.getCredentials(profile = "fail")
       Await.result(futureCredentials, 10 seconds) match {
         case Some(permission) =>
-          val accessKeyID = permission.accessKeyId
+          val accessKeyID = Await.result(permission.accessKeyId, 10 seconds)
           println(accessKeyID)
-          val kSecret = permission.secretAccessKey
+          val kSecret = Await.result(permission.secretAccessKey, 10 seconds)
           println(kSecret)
-          val token = permission.token
+          val token = Await.result(permission.token, 10 seconds)
           val baseURI = awsConfig.getString("URI")
           val service = awsConfig.getString("service")
           val region = awsConfig.getString("region")
