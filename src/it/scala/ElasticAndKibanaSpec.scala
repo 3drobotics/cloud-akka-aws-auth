@@ -90,7 +90,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
-  it ("should be a sucessful get request of the posted information") {
+  it ("should be a successful get request of the posted information") {
     val region = awsConfig.getString("region")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")
@@ -104,7 +104,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
     response.status shouldBe StatusCodes.OK
   }
 
-  it ("should be a sucessful get request adding the authorization query String") {
+  it ("should be a successful get request adding the authorization query String") {
     val region = awsConfig.getString("region")
     val baseURI = awsConfig.getString("URI")
     val service = awsConfig.getString("service")

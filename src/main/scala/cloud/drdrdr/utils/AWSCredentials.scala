@@ -7,24 +7,30 @@ package cloud.drdrdr.utils
 
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.{SimpleTimeZone, Date}
+import java.util.{Date, SimpleTimeZone}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
 import akka.pattern.after
-import cloud.drdrdr.SignRequestForAWS
-import scala.io.Source
-import akka.stream.scaladsl
+import akka.stream.{ActorMaterializer, scaladsl}
+import akka.stream.scaladsl.Sink
+import akka.util.ByteString
 import spray.json._
+
 import scala.concurrent.duration._
-import scala.concurrent.{Promise, Await, ExecutionContext, Future}
-import scala.util.{Success, Failure}
+import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.io.Source
 
 trait AWSCredentials {
 
+  /**
+   *
+   * @param keyId aws accessKeyId
+   * @param secretKey aws accessSecretKey
+   * @param tok aws token associated with credentials
+   * @param exp aws expiration of credentials
+   */
   class AWSPermissions(keyId: String, secretKey: String, tok: String = "", exp: String = "") {
     private val accessKey = keyId
     private val secretAccess = secretKey
@@ -43,7 +49,7 @@ trait AWSCredentials {
      * secretAccessKey accessor method
      * @return secretAccessKey
      */
-    def secretAccessKey:  String = {
+    def secretAccessKey: String = {
       this.secretAccess
     }
 
@@ -66,16 +72,34 @@ trait AWSCredentials {
     /**
      * returns the equivalent futureAWSPermission with the same credentials
      * @param ec implicit execution context
-     * @param system implicit actor system
-     * @param materializer implicit actor materializer
+     * @param s implicit actor system
+     * @param m implicit actor materializer
      * @return futureAWSPermissions with the same credentials
      */
-    def makeFuture()(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): updatingAWSPermissions = {
-      new updatingAWSPermissions(Future{accessKeyId}, Future{secretAccessKey}, Future{token}, Future{exp})
+    def makeFuture()(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): updatingAWSPermissions = {
+      new updatingAWSPermissions(Future {
+        accessKeyId
+      }, Future {
+        secretAccessKey
+      }, Future {
+        token
+      }, Future {
+        exp
+      })
     }
   }
 
-  class updatingAWSPermissions(keyId: Future[String], secretKey: Future[String], tok: Future[String], exp: Future[String])(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer) {
+  /**
+   * constructor for ec2 permission that will update itself when it expires
+   * @param keyId future aws accessKeyId
+   * @param secretKey future aws secretAccessKey
+   * @param tok future aws token associated with credentials
+   * @param exp future aws expiration of credentials
+   * @param ec implicit execution context
+   * @param s implicit actor system
+   * @param m implicit actor materializer
+   */
+  class updatingAWSPermissions(keyId: Future[String], secretKey: Future[String], tok: Future[String], exp: Future[String])(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer) {
     private var accessKey = keyId
     private var secretAccess = secretKey
     private var t = tok
@@ -137,7 +161,7 @@ trait AWSCredentials {
     //checks if current credentials have expired
     private def checkExpire: Future[Boolean] = {
       expiration map {
-        case expireTime:String =>
+        case expireTime: String =>
           if (expireTime.isEmpty)
             false
           else
@@ -152,17 +176,17 @@ trait AWSCredentials {
     }
 
     //updates the credentials with a new permission
-    private def update(newPerm: Future[Option[AWSPermissions]] ): Unit = {
-      accessKey  = newPerm map {case Some(perm) => perm.accessKeyId}
-      secretAccess = newPerm map {case Some(perm) => perm.accessKeyId}
-      t = newPerm map {case Some(perm) => perm.token}
-      e = newPerm map {case Some(perm) => perm.expiration}
+    private def update(newPerm: Future[Option[AWSPermissions]]): Unit = {
+      accessKey = newPerm map { case Some(perm) => perm.accessKeyId }
+      secretAccess = newPerm map { case Some(perm) => perm.accessKeyId }
+      t = newPerm map { case Some(perm) => perm.token }
+      e = newPerm map { case Some(perm) => perm.expiration }
     }
 
     // got utc time for amz date from http://stackoverflow.com/questions/25991892/how-do-i-format-time-to-utc-time-zone
     // got formatting from http://stackoverflow.com/questions/5377790/date-conversion
     // formatting based on convention for amz signing
-    private def getUTCTime()(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): String = {
+    private def getUTCTime()(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
       val date = new Date()
       val format1 = new SimpleDateFormat("yyyy-MM-dd")
       format1.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
@@ -174,48 +198,50 @@ trait AWSCredentials {
     /**
      * awaits for the different credential fields and returns AWSPermissions with those credentials
      * should only use if the credentials are permanent or if credentials will not expire
-     * @param timeout
-     * @param ec
-     * @param system
-     * @param materializer
+     * @param timeout how long to wait for the fields
+     * @param ec implicit execution context
+     * @param s implicit actor system
+     * @param m implicit actor materializer
      * @return static permissions
      */
-    def removeFuture(timeout: Int = 50)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): AWSPermissions = {
+    def removeFuture(timeout: Int = 50)(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): AWSPermissions = {
       return new AWSPermissions(Await.result(accessKeyId, timeout milliseconds), Await.result(secretAccessKey, timeout milliseconds), Await.result(token, timeout milliseconds), Await.result(expiration, timeout milliseconds))
     }
   }
 
   //checks if both the access key Id and the secret key are valid
-  def validCredentials(keyId:Option[String], accessKey:Option[String], token:Option[String] = Some(""), expiration:Option[String] = Some("")): Option[AWSPermissions] = {
+  def validCredentials(keyId: Option[String], accessKey: Option[String], token: Option[String] = Some(""), expiration: Option[String] = Some("")): Option[AWSPermissions] = {
     if (keyId.isDefined && accessKey.isDefined && keyId.get != null && accessKey.get != null)
-      Some(new AWSPermissions(keyId.get, accessKey.get,token.get,expiration.get))
+      Some(new AWSPermissions(keyId.get, accessKey.get, token.get, expiration.get))
     else None
   }
 
   /**
    * gets the credentials from the environment fields AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or none
    */
-  def getEnvironmentCredentials()(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Option[AWSPermissions] = {
+  def getEnvironmentCredentials()(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Option[AWSPermissions] = {
     getCredentialsFromMap(sys.env, "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
   }
 
   /**
    * gets the credentials from the environment fields AWS_ACCESS_KEY and AWS_SECRET_KEY
+   *
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or none
    */
-  def getEnvironmentAlternateCredentials()(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Option[AWSPermissions] = {
+  def getEnvironmentAlternateCredentials()(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Option[AWSPermissions] = {
     getCredentialsFromMap(sys.env, "AWS_ACCESS_KEY", "AWS_SECRET_KEY")
   }
 
   //gets credentials from a generic string to string map
-  protected def getCredentialsFromMap(environment:Map[String, String], keyIdKey:String, accessKeyKey:String)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer) = {
+  protected def getCredentialsFromMap(environment: Map[String, String], keyIdKey: String, accessKeyKey: String)
+                                     (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Option[AWSPermissions] = {
     val keyId = environment.get(keyIdKey)
     val accessKey = environment.get(accessKeyKey)
     validCredentials(keyId, accessKey)
@@ -223,12 +249,13 @@ trait AWSCredentials {
 
   /**
    * gets the credentials from the java system fields aws.accessKeyId and aws.secretKey
+   *
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or none
    */
-  def getJavaSystemCredentials()(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Option[AWSPermissions] = {
+  def getJavaSystemCredentials()(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Option[AWSPermissions] = {
     val keyId = Some(System.getProperty("aws.accessKeyId"))
     val accessKey = Some(System.getProperty("aws.secretKey"))
     validCredentials(keyId, accessKey)
@@ -236,18 +263,20 @@ trait AWSCredentials {
 
   /**
    * gets the credentials from a specific profile in a specified file
+   *
    * @param credentialFile file with aws credentials
    * @param profile the name of the profile for the credentials to be used
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or None
    */
-  def getSpecificCredentialsProfile(credentialFile:String, profile:String = "default")(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
+  def getSpecificCredentialsProfile(credentialFile: String, profile: String = "default")
+                                   (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val header = """\s*\[([^]]*)\]\s*""".r
     val keyValue = """\s*([^=]*)=(.*)""".r
-    var accessKey : Option[String] = None
-    var keyId : Option[String] = None
+    var accessKey: Option[String] = None
+    var keyId: Option[String] = None
     Future {
       try {
         val source = Source.fromFile(credentialFile)
@@ -273,7 +302,7 @@ trait AWSCredentials {
         }
         source.close()
       } catch {
-        case e: Exception => println(s"""Could not open $credentialFile due to $e""")
+        case e: Exception => println( s"""Could not open $credentialFile due to $e""")
       }
 
       validCredentials(keyId, accessKey)
@@ -282,98 +311,96 @@ trait AWSCredentials {
 
   /**
    * gets the credentials from a specific profile in ~/.aws/credentials
+   *
    * @param profile the name of the profile for the credentials to be used
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or None
    */
-  def getCredentialsProfile(profile:String = "default")(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
+  def getCredentialsProfile(profile: String = "default")
+                           (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val home = System.getProperty("user.home")
-    val credentialFile = home + File.separator +  ".aws" + File.separator + "credentials"
+    val credentialFile = home + File.separator + ".aws" + File.separator + "credentials"
     getSpecificCredentialsProfile(credentialFile, profile)
   }
 
-  //gets the credentials on a ec2 server for a roleName
-  protected def getEC2RoleCredentials(roleName:String, timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
-    import DefaultJsonProtocol._
-    val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/${roleName}"""
+  // gets the credentials on a ec2 server for a roleName
+  protected def getEC2RoleCredentials(roleName: String, timeout: Int = 500)
+                                     (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
+    val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/$roleName"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
     val httpResponseFuture = post(httpRequest)
-    val ec2Credentials = httpResponseFuture flatMap{
-      case response:HttpResponse =>
+    val ec2Credentials = httpResponseFuture flatMap {
+      case response: HttpResponse =>
         getCredentialsEC2Response(response)
     }
     Future.firstCompletedOf(
-      List(ec2Credentials,
-        after(timeout milliseconds, system.scheduler)(Future {None})))
+      List(ec2Credentials, after(timeout milliseconds, s.scheduler)(Future {
+        None
+      })))
   }
 
   //gets credentials from the http response of a ec2 instance
-  protected def getCredentialsEC2Response(response: HttpResponse)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
-    response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
-      case responseInfo =>
-        val responseData = responseInfo.mkString
-        val responseJson = responseData.parseJson
-        var keyId:Option[String] = None
-        var accessKey:Option[String] = None
-        var token:Option[String] = None
-        var expiration:Option[String] = None
-        val jsonMap = responseJson.asJsObject().fields
-        val jsKeyId = jsonMap.get("AccessKeyId")
-        if (jsKeyId.isDefined)
-          keyId = Some(jsKeyId.get.toString() replaceAll ("[\"]", ""))
-        val jsAccessKey = jsonMap.get("SecretAccessKey")
-        if (jsAccessKey.isDefined)
-          accessKey = Some(jsAccessKey.get.toString() replaceAll ("[\"]", ""))
-        val jsToken = jsonMap.get("Token")
-        if (jsToken.isDefined)
-          token = Some(jsToken.get.toString() replaceAll ("[\"]", ""))
-        val jsExpiration = jsonMap.get("Expiration")
-        if (jsExpiration.isDefined)
-          expiration = Some(jsExpiration.get.toString() replaceAll ("[\"]", ""))
-        //TODO fix
-        validCredentials(keyId, accessKey, token, expiration)
-    }
+  protected def getCredentialsEC2Response(response: HttpResponse)
+                                         (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
+      response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
+        case responseInfo =>
+          val responseData = responseInfo.mkString
+          val responseJson = responseData.parseJson
+          var keyId: Option[String] = None
+          var accessKey: Option[String] = None
+          var token: Option[String] = None
+          var expiration: Option[String] = None
+          val jsonMap = responseJson.asJsObject().fields
+          val jsKeyId = jsonMap.get("AccessKeyId")
+          if (jsKeyId.isDefined)
+            keyId = Some(jsKeyId.get.toString() replaceAll("[\"]", ""))
+          val jsAccessKey = jsonMap.get("SecretAccessKey")
+          if (jsAccessKey.isDefined)
+            accessKey = Some(jsAccessKey.get.toString() replaceAll("[\"]", ""))
+          val jsToken = jsonMap.get("Token")
+          if (jsToken.isDefined)
+            token = Some(jsToken.get.toString() replaceAll("[\"]", ""))
+          val jsExpiration = jsonMap.get("Expiration")
+          if (jsExpiration.isDefined)
+            expiration = Some(jsExpiration.get.toString() replaceAll("[\"]", ""))
+          //TODO fix
+          validCredentials(keyId, accessKey, token, expiration)
+      }
   }
 
+  // gets the role name off the ec2 instance
+  protected def getAmazonEC2RoleName(timeout: Int = 500)
+                                    (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[String]] = {
+      import DefaultJsonProtocol._
+      import spray.json._
 
-  //gets the role name off the ec2 instance
-  protected def getAmazonEC2RoleName(timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[String]] = {
-    val URI = s"""http://169.254.169.254/latest/meta-data/iam/info"""
-    val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
-    val httpResponseFuture = post(httpRequest)
-    val roleName = httpResponseFuture flatMap {
-      case response:HttpResponse =>
-        response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
-          case responseInfo =>
-            val responseData = responseInfo.mkString
-            val responseJson = responseData.parseJson
-            var role: Option[String] = None
-            val jsonMap = responseJson.asJsObject().fields
-            val jsInstanceProfile = jsonMap.get("InstanceProfileArn")
-            if (jsInstanceProfile.isDefined) {
-              val instanceSections = jsInstanceProfile.get.toString().split("/")
-              if (instanceSections.nonEmpty)
-                role = Some(instanceSections.last replaceAll ("[\"]", ""))
-            }
-            role
-        }
-    }
-    Future.firstCompletedOf(
-      List(roleName,
-        after(timeout milliseconds, system.scheduler)(Future {None})))
+      val request = HttpRequest(HttpMethods.GET, "http://169.254.169.254/latest/meta-data/iam/info")
+      val instanceFuture = Http().singleRequest(request).flatMap { response =>
+        response.entity.dataBytes
+          .fold(ByteString.empty)(_ ++ _)
+          .map(_.utf8String)
+          .runWith(Sink.head)
+          .map(_.parseJson)
+          .map {
+            _.asJsObject.fields.get("InstanceProfileArn")
+              .map(_.toString().split("/").last.replaceAll("[\"]", ""))
+          }
+      }
+      Future.firstCompletedOf(
+        List(instanceFuture, after(timeout milliseconds, s.scheduler)(Future.successful(None))))
   }
-
   /**
    * gets the aws credentials associated with the role of the ec2 instance
+ *
    * @param timeout time to wait for the ec2 response in miliseconds
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
-   * @return future aws credentials or None
+   * @param s implicit actor system
+   * @param m implicit actor materializer
+   * @return aws credentials or None
    */
-  def getAmazonEC2Credentials(timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[AWSPermissions]] = {
+  def getAmazonEC2Credentials(timeout: Int = 500)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val roleName = getAmazonEC2RoleName(timeout)
     val ec2Credentials = roleName flatMap{
       case Some(role) =>
@@ -387,11 +414,11 @@ trait AWSCredentials {
    * gets the aws credentials associated with the role of the ec2 instance
    * @param timeout time to wait for the ec2 response in miliseconds
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return future aws credentials that will update automatically or None
    */
-  def getUpdatingAmazonEC2Credentials(timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
+  def getUpdatingAmazonEC2Credentials(timeout:Int = 500)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
     getAmazonEC2Credentials() map {
       case Some(permission) =>
         Some(permission.makeFuture())
@@ -403,37 +430,51 @@ trait AWSCredentials {
   /**
    * gets the first aws credentials it finds by checking the environment, java system, local credential file, and ec2 instance in that respective order
    * gets the credentials from a specific profile in a specified file
+ *
    * @param credentialFile file with aws credentials
    * @param profile the name of the profile for the credentials to be used
    * @param timeout time to wait for the ec2 response in miliseconds
    * @param ec implicit execution context
-   * @param system implicit actor system
-   * @param materializer implicit actor materializer
+   * @param s implicit actor system
+   * @param m implicit actor materializer
    * @return aws credentials or None
    */
-  def getCredentials(profile:String = "default", credentialFile:String = "", timeout:Int = 500)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
+  def getCredentials(profile: String = "default", credentialFile: String = "", timeout: Int = 500)
+                    (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
     val envCredentials = Future.successful(getEnvironmentCredentials())
     val envCredentialsAlt = Future.successful(getEnvironmentAlternateCredentials())
     val javaSysCredentials = Future.successful(getJavaSystemCredentials())
-    val profileCredentials = if (credentialFile == "") getCredentialsProfile(profile) else getSpecificCredentialsProfile(credentialFile, profile)
+    val profileCredentials =
+      if (credentialFile == "") getCredentialsProfile(profile)
+      else getSpecificCredentialsProfile(credentialFile, profile)
     //fix
     val ec2Credential = getAmazonEC2Credentials()
-    val credentialProviderList: List[Future[Option[AWSPermissions]]] = List(envCredentials, envCredentialsAlt, javaSysCredentials, profileCredentials, ec2Credential)
+    val credentialProviderList: List[Future[Option[AWSPermissions]]] =
+      List(envCredentials, envCredentialsAlt, javaSysCredentials, profileCredentials, ec2Credential)
 
-    futureList(credentialProviderList, 0)
+    futureList(credentialProviderList)
   }
 
-  //returns the first valid credentials in the list
-  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]], index: Int)
+//<<<<<<< HEAD
+//  //returns the first valid credentials in the list
+//  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]], index: Int)
+//                        (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
+//    futureSeq(index) flatMap  {
+//      case Some(result) => Future.successful(Some(result.makeFuture()))
+//      case None => if (index == futureSeq.length - 1) Future.successful(None) else futureList(futureSeq, index + 1)
+//=======
+  private def futureList(futureSeq: List[Future[Option[AWSPermissions]]])
                         (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[Option[updatingAWSPermissions]] = {
-    futureSeq(index) flatMap  {
+    futureSeq.head flatMap  {
       case Some(result) => Future.successful(Some(result.makeFuture()))
-      case None => if (index == futureSeq.length - 1) Future.successful(None) else futureList(futureSeq, index + 1)
+      case None =>
+        if (futureSeq.isEmpty) Future.successful(None)
+        else futureList(futureSeq.tail)
     }
   }
 
-  //sends outgoing request
-  private def post(httpRequest: HttpRequest)(implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[HttpResponse] = {
+  // sends outgoing request
+  private def post(httpRequest: HttpRequest)(implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[HttpResponse] = {
     val endpoint = httpRequest.uri.toString()
     val uri = java.net.URI.create(endpoint)
     val outgoingConn = if (uri.getScheme == "https") {
@@ -442,6 +483,18 @@ trait AWSCredentials {
       Http().outgoingConnection(uri.getHost, if (uri.getPort == -1) 80 else uri.getPort)
     }
     scaladsl.Source.single(httpRequest).via(outgoingConn).runWith(Sink.head)
+  }
+
+  // got utc time for amz date from http://stackoverflow.com/questions/25991892/how-do-i-format-time-to-utc-time-zone
+  // got formatting from http://stackoverflow.com/questions/5377790/date-conversion
+  // formatting based on convention for amz signing
+  protected def getUTCTime(): String = {
+    val date = new Date()
+    val format1 = new SimpleDateFormat("yyyy-MM-dd")
+    format1.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
+    val format2 = new SimpleDateFormat("HH:mm:ss")
+    format2.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
+    format1.format(date) + "T" + format2.format(date) + "Z"
   }
 
 }
