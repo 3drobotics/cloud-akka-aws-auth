@@ -19,8 +19,9 @@ import akka.util.ByteString
 import spray.json._
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{ExecutionContext, Future, Await, Promise}
 import scala.io.Source
+import scala.util.{Failure, Success}
 
 trait AWSCredentials {
 
@@ -277,36 +278,39 @@ trait AWSCredentials {
     val keyValue = """\s*([^=]*)=(.*)""".r
     var accessKey: Option[String] = None
     var keyId: Option[String] = None
-    Future {
-      try {
-        val source = Source.fromFile(credentialFile)
-        val lines = source.getLines()
-        try {
-          while (lines.hasNext && accessKey.isEmpty && keyId.isEmpty) {
-            lines.next() match {
-              case header(head) =>
-                if (head.equals(profile)) {
-                  lines.next() match {
-                    case keyValue(key, value) => keyId = Some(value.trim())
-                  }
-                  lines.next() match {
-                    case keyValue(key, value) => accessKey = Some(value.trim())
-                  }
-                }
-              case _ => ;
-            }
-          }
-        } catch {
-          case e: Exception =>
-            println( s"""$credentialFile file does not contain $profile or is improperly formatted""")
-        }
-        source.close()
-      } catch {
-        case e: Exception => println( s"""Could not open $credentialFile due to $e""")
-      }
+    val p = Promise[Option[AWSPermissions]]()
 
-      validCredentials(keyId, accessKey)
+    try {
+      val source = Source.fromFile(credentialFile)
+      val lines = source.getLines()
+      try {
+        while (lines.hasNext && accessKey.isEmpty && keyId.isEmpty) {
+          lines.next() match {
+            case header(head) =>
+              if (head.equals(profile)) {
+                lines.next() match {
+                  case keyValue(key, value) => keyId = Some(value.trim())
+                }
+                lines.next() match {
+                  case keyValue(key, value) => accessKey = Some(value.trim())
+                }
+              }
+            case _ => ;
+          }
+        }
+        p.success(validCredentials(keyId, accessKey))
+      } catch {
+        case e: Throwable =>
+          println( s"""$credentialFile file does not contain $profile or is improperly formatted""")
+          p.failure(e)
+      } finally {
+        source.close()
+      }  
+    } catch {
+      case e: Throwable => println( s"""Not able to open $credentialFile due to $e""")
+      p.failure(e)
     }
+    p.future
   }
 
   /**
