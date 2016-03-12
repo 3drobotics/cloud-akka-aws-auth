@@ -25,12 +25,12 @@ publishTo := {
 libraryDependencies ++= {
   val akkaV = "2.4-SNAPSHOT"
   Seq(
-    "com.typesafe.akka" %% "akka-actor" % akkaV,
-    "com.typesafe.akka" %% "akka-stream" % akkaV,
-    "com.typesafe.akka" %% "akka-http-core" % akkaV,
-    "com.typesafe.akka" %% "akka-http-experimental" % akkaV,
-    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaV,
-    "com.typesafe.akka" %% "akka-http-testkit" % akkaV,
+//    "com.typesafe.akka" %% "akka-actor" % akkaV,
+//    "com.typesafe.akka" %% "akka-stream" % akkaV,
+//    "com.typesafe.akka" %% "akka-http-core" % akkaV,
+//    "com.typesafe.akka" %% "akka-http-experimental" % akkaV,
+//    "com.typesafe.akka" %% "akka-http-spray-json-experimental" % akkaV,
+//    "com.typesafe.akka" %% "akka-http-testkit" % akkaV,
     "io.spray" %%  "spray-json" % "1.3.2",
     "commons-codec" % "commons-codec" % "1.6",
     "org.scalatest" %% "scalatest" % "2.2.4" % "it,test",
