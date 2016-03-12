@@ -1,6 +1,7 @@
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpResponse, StatusCodes, HttpMethods, HttpRequest}
 import akka.stream.scaladsl.{Source, Sink}
+import cloud.drdrdr.utils.AWSCredentials.AWSPermissions
 import org.scalatest.{Matchers, FunSpec}
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -42,14 +43,14 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
 
   describe("Should") {
     it ("get credentials") {
-      val futureCredentials = AWSCredentials.getUpdatingAmazonEC2Credentials()
-      val credentials = Await.result(futureCredentials, 10 seconds)
-      credentials.isEmpty shouldBe false
+      val credentialSource = AWSCredentials.getAmazonEC2CredentialsSource()
+      val credentials = Await.result(credentialSource.getCredentials, 10 seconds)
+      credentials.token.isEmpty shouldBe false
     }
     it ("send a request") {
-      val futureCredentials = AWSCredentials.getUpdatingAmazonEC2Credentials()
-      Await.result(futureCredentials, 10 seconds) match {
-        case Some(permission) =>
+      val credentialsSource = AWSCredentials.getAmazonEC2CredentialsSource()
+      Await.result(credentialsSource.getCredentials, 10 seconds) match {
+        case permission =>
 //          val accessKeyID = permission.accessKeyId
 //          val kSecret = permission.secretAccessKey
 //          println(accessKeyID)
@@ -62,24 +63,22 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
             method = HttpMethods.GET,
             uri = URI
           )
-          val authRequest = Await.result(addAuthorizationHeaderFromUpdatingCredentials(request, region, service, permission), 15 seconds)
+          val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 15 seconds)
           println(authRequest)
           val response = Await.result(post(authRequest), 10 seconds)
           jsonPrint(response)
           response.status shouldBe StatusCodes.OK
-        case None =>
-          None shouldBe StatusCodes.OK
       }
     }
     it ("send a request using general get method") {
-      val futureCredentials = AWSCredentials.getCredentials(profile = "fail")
-      Await.result(futureCredentials, 10 seconds) match {
-        case Some(permission) =>
-          val accessKeyID = Await.result(permission.accessKeyId, 10 seconds)
+      val credentialsSource = AWSCredentials.getCredentials(profile = "fail")
+      Await.result(credentialsSource.getCredentials, 10 seconds) match {
+        case permission:AWSPermissions =>
+          val accessKeyID = permission.accessKeyId
           println(accessKeyID)
-          val kSecret = Await.result(permission.secretAccessKey, 10 seconds)
+          val kSecret = permission.secretAccessKey
           println(kSecret)
-          val token = Await.result(permission.token, 10 seconds)
+          val token = permission.token
           val baseURI = awsConfig.getString("URI")
           val service = awsConfig.getString("service")
           val region = awsConfig.getString("region")
@@ -93,8 +92,6 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS{
           val response = Await.result(post(authRequest), 10 seconds)
           jsonPrint(response)
           response.status shouldBe StatusCodes.OK
-        case None =>
-          None shouldBe StatusCodes.OK
       }
     }
   }

@@ -42,19 +42,12 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
     Source.single(httpRequest).via(outgoingConn).runWith(Sink.head)
   }
 
-  val futureCredentials = AWSCredentials.getCredentials()
-  var accessKeyID = ""
-  var kSecret = ""
-  var token = ""
-  var expiration = ""
-  Await.result(futureCredentials, 10 seconds) match {
-    case Some(credentials) =>
-      accessKeyID = Await.result(credentials.accessKeyId, 10 seconds)
-      kSecret = Await.result(credentials.secretAccessKey, 10 seconds)
-      token = Await.result(credentials.token, 10 seconds)
-      expiration = Await.result(credentials.expiration, 10 seconds)
-    case None => ;
-  }
+  val credentialsSource = AWSCredentials.getCredentials()
+  val credentials = Await.result(credentialsSource.getCredentials, 10 seconds)
+  val accessKeyID = credentials.accessKeyId
+  val kSecret = credentials.secretAccessKey
+  val token = credentials.token
+  val expiration = credentials.expiration
   val uuid = UUID.randomUUID().toString
   // uses a random UUID to prevent using the same index again
   it("Should post the correct httpRequest with all the necessary aws authentication") {
