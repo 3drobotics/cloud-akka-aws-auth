@@ -451,7 +451,8 @@ trait AWSCredentials {
       import spray.json._
 
       val request = HttpRequest(HttpMethods.GET, "http://169.254.169.254/latest/meta-data/iam/info")
-      val instanceFuture = Http().singleRequest(request).flatMap { response =>
+//      val instanceFuture = Http().singleRequest(request).flatMap { response =>
+      val instanceFuture = post(request).flatMap { response =>
         response.entity.dataBytes
           .fold(ByteString.empty)(_ ++ _)
           .map(_.utf8String)
