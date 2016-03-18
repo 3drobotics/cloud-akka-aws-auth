@@ -50,10 +50,6 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
     }
     it ("send a request") {
       val credentialsSource = AWSCredentials.getAmazonEC2CredentialsSource()
-//          val accessKeyID = permission.accessKeyId
-//          val kSecret = permission.secretAccessKey
-//          println(accessKeyID)
-//          val token = permission.token
       val baseURI = awsConfig.getString("URI")
       val service = awsConfig.getString("service")
       val region = awsConfig.getString("region")
@@ -117,6 +113,8 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
       val futureCreds = futureCredentials map {
         case Some(credentials:AWSPermissions) =>
           credentials
+        case None =>
+          None shouldBe "valid credential"
       }
       val credentialsSource = new AWSCredentialSource(futureCreds)
       val credentials = Await.result(credentialsSource.getCredentials, 10 seconds)

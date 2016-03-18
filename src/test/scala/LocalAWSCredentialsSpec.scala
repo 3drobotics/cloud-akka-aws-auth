@@ -105,10 +105,5 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials1.token shouldBe testCredentials1.token
       credentials1.expiration shouldBe testCredentials1.expiration
     }
-//    it ("by going through the whole chain without failing") {
-//      val futureCredentials2 = AWSCredentials.getCredentials()
-//      val credentials2 = Await.result(futureCredentials2, 10 seconds)
-//      credentials2.isEmpty shouldBe false
-//    }
   }
 }

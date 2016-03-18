@@ -234,7 +234,7 @@ trait AWSCredentials {
   }
 
   // gets the credentials on a ec2 server for a roleName
-  protected def getEC2RoleCredentials(roleName: String, timeout: Int = 200)
+  protected def getEC2RoleCredentials(roleName: String, timeout: Int = 300)
                                      (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val URI = s"""http://169.254.169.254/latest/meta-data/iam/security-credentials/$roleName"""
     val httpRequest = HttpRequest(method = HttpMethods.GET, uri = URI)
@@ -278,7 +278,7 @@ trait AWSCredentials {
   }
 
   // gets the role name off the ec2 instance
-  protected def getAmazonEC2RoleName(timeout: Int = 200)
+  protected def getAmazonEC2RoleName(timeout: Int = 300)
                                     (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[String]] = {
       import spray.json._
 
@@ -308,7 +308,7 @@ trait AWSCredentials {
    * @return aws credentials or None
    */
   @throws(classOf[Exception])
-  def getAmazonEC2Credentials(timeout: Int = 200)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
+  def getAmazonEC2Credentials(timeout: Int = 300)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val roleName = getAmazonEC2RoleName(timeout)
     val ec2Credentials = roleName flatMap{
       case Some(role) =>
@@ -329,7 +329,7 @@ trait AWSCredentials {
    * @return future aws credentials that will update automatically or None
    */
   @throws(classOf[Exception])
-  def getAmazonEC2CredentialsSource(timeout:Int = 200)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
+  def getAmazonEC2CredentialsSource(timeout:Int = 300)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
     AWSCredentialSource(
       getAmazonEC2Credentials(timeout) map {
         case Some(permission:AWSPermissions) =>
@@ -353,7 +353,7 @@ trait AWSCredentials {
    * @return aws credentials or None
    */
   @throws(classOf[Exception])
-  def getCredentials(profile: String = "default", credentialFile: String = "", timeout: Int = 200)
+  def getCredentials(profile: String = "default", credentialFile: String = "", timeout: Int = 300)
                     (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
     val envCredentials = Future.successful(getEnvironmentCredentials())
     val envCredentialsAlt = Future.successful(getEnvironmentAlternateCredentials())
