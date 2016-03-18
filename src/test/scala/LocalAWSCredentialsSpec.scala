@@ -27,6 +27,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
+      credentials.get.expiration shouldBe testCredentials.get.expiration
     }
     it ("should get credentials from alternate mock environment map") {
       val map = sys.env
@@ -36,6 +37,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
+      credentials.get.expiration shouldBe testCredentials.get.expiration
     }
     it ("should get credentials from java system properties") {
       val properties = System.getProperties()
@@ -46,6 +48,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
+      credentials.get.expiration shouldBe testCredentials.get.expiration
     }
     it ("should get credentials from a local file") {
       val home = new File(System.getProperty("user.home"))
@@ -60,18 +63,20 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
+      credentials.get.expiration shouldBe testCredentials.get.expiration
     }
     it ("should get credentials from httpResponse") {
       val entity = HttpEntity("{\"AccessKeyId\":\"AKIAIOSFODNN7EXAMPLE\",\n\"SecretAccessKey\":\"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\n,\"Token\":\"test\"\n,\"Expiration\":\"test\"\n }")
       val response = HttpResponse(
         entity = entity
       )
-      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "test"))
+      val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "test", "test"))
       val futureCredentials = getCredentialsEC2Response(response)
       val credentials = Await.result(futureCredentials, 10 seconds)
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
+      credentials.get.expiration shouldBe testCredentials.get.expiration
     }
     it ("tests ordering of credentials") {
       val home = System.getProperty("user.home")
@@ -87,6 +92,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials2.accessKeyId shouldBe testCredentials2.accessKeyId
       credentials2.secretAccessKey shouldBe testCredentials2.secretAccessKey
       credentials2.token shouldBe testCredentials2.token
+      credentials2.expiration shouldBe testCredentials2.expiration
 
       val properties = System.getProperties()
       properties.setProperty("aws.accessKeyId", "AKIAIOSFODNN7EXAMPLE")
@@ -97,6 +103,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers with AWSCredentials{
       credentials1.accessKeyId shouldBe testCredentials1.accessKeyId
       credentials1.secretAccessKey shouldBe testCredentials1.secretAccessKey
       credentials1.token shouldBe testCredentials1.token
+      credentials1.expiration shouldBe testCredentials1.expiration
     }
 //    it ("by going through the whole chain without failing") {
 //      val futureCredentials2 = AWSCredentials.getCredentials()

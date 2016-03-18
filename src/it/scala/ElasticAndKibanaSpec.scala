@@ -6,6 +6,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import cloud.drdrdr.SignRequestForAWS
 import cloud.drdrdr.utils.AWSCredentials
+import cloud.drdrdr.utils.AWSCredentials.AWSCredentialSource
 import cloud.drdrdr.utils.Config.awsConfig
 import org.scalatest._
 import spray.json._
@@ -107,6 +108,20 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
       uri = URI
     )
     val authRequest = Await.result(addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 15 seconds)
+    val response = Await.result(post(authRequest), 10 seconds)
+    response.status shouldBe StatusCodes.OK
+  }
+
+  it("should be a successful get request using the credential source") {
+    val region = awsConfig.getString("region")
+    val baseURI = awsConfig.getString("URI")
+    val service = awsConfig.getString("service")
+    val URI = s"$baseURI?Version=2013-10-15&Action=DescribeRegions"
+    val request = HttpRequest(
+      method = HttpMethods.GET,
+      uri = URI
+    )
+    val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 15 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }

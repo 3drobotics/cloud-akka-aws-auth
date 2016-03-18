@@ -21,7 +21,7 @@ import spray.json._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.io.Source
-
+import scala.util.control
 
 
 trait AWSCredentials {
@@ -73,15 +73,16 @@ trait AWSCredentials {
           if (creds.expiration.isEmpty)
             false
           else
-            creds.expiration >= getUTCTime()
+            creds.expiration <= getUTCTime()
       }
     }
 //
     //updates the credentials on an EC2 instance if necessary
+    @throws(classOf[Exception])
     private def updateCredentials(): Future[AWSPermissions] = {
       getAmazonEC2Credentials() map {
         case Some(cred) => cred
-//        case None => throw Exception
+        case None => throw new Exception("Unable to update credentials")
       }
     }
   }
@@ -473,11 +474,14 @@ trait AWSCredentials {
    * @param m implicit actor materializer
    * @return aws credentials or None
    */
+  @throws(classOf[Exception])
   def getAmazonEC2Credentials(timeout: Int = 500)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val roleName = getAmazonEC2RoleName(timeout)
     val ec2Credentials = roleName flatMap{
       case Some(role) =>
         getEC2RoleCredentials(role, timeout)
+      case None =>
+        throw new Exception("Unable to get role")
       case _ => Future{None}
     }
     ec2Credentials
@@ -491,11 +495,14 @@ trait AWSCredentials {
    * @param m implicit actor materializer
    * @return future aws credentials that will update automatically or None
    */
+  @throws(classOf[Exception])
   def getAmazonEC2CredentialsSource(timeout:Int = 500)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
     AWSCredentialSource(
       getAmazonEC2Credentials() map {
-        case Some(permission) =>
+        case Some(permission:AWSPermissions) =>
           permission
+        case None =>
+          throw new Exception("Unable to get AWS credentials")
       }
     )
   }
@@ -512,6 +519,7 @@ trait AWSCredentials {
    * @param m implicit actor materializer
    * @return aws credentials or None
    */
+  @throws(classOf[Exception])
   def getCredentials(profile: String = "default", credentialFile: String = "", timeout: Int = 500)
                     (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
     val envCredentials = Future.successful(getEnvironmentCredentials())
@@ -529,6 +537,8 @@ trait AWSCredentials {
       futureList(credentialProviderList) map {
         case Some(cred:AWSPermissions) =>
           cred
+        case None =>
+          throw new Exception("Unable to get AWS credentials")
       }
     )
   }

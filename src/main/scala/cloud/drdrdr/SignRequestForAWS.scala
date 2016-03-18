@@ -144,7 +144,7 @@ trait SignRequestForAWS {
                                                    (implicit ec: ExecutionContext, system:ActorSystem, materializer: ActorMaterializer): Future[HttpRequest] = {
     val permissions = credentialSource.getCredentials
     permissions flatMap {
-      case perm:AWSPermissions => addAuthorizationHeader(httpRequest, perm.accessKeyId, region, perm.secretAccessKey, service, perm.token)
+      case perm:AWSPermissions => addAuthorizationHeader(httpRequest, perm.secretAccessKey, region,perm.accessKeyId, service, perm.token)
     }
   }
 
