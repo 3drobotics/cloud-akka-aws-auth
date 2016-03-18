@@ -17,7 +17,8 @@ import akka.stream.{ActorMaterializer, scaladsl}
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import spray.json._
-
+import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.io.Source
@@ -179,12 +180,13 @@ trait AWSCredentials {
    * @param m implicit actor materializer
    * @return aws credentials or None
    */
-  def getSpecificCredentialsProfile(credentialFile: String, profile: String = "default")
+  def getSpecificCredentialsProfile(credentialFile: String, profile: String = "default", logOutput: Boolean = true)
                                    (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val header = """\s*\[([^]]*)\]\s*""".r
     val keyValue = """\s*([^=]*)=(.*)""".r
     var accessKey: Option[String] = None
     var keyId: Option[String] = None
+    val log: Logger = Logger(LoggerFactory.getLogger(getClass))
     Future {
       try {
         val source = Source.fromFile(credentialFile)
@@ -206,11 +208,14 @@ trait AWSCredentials {
           }
         } catch {
           case e: Exception =>
-            println( s"""$credentialFile file does not contain $profile or is improperly formatted""")
+            if (logOutput)
+              log.error( s"""$credentialFile file does not contain $profile or is improperly formatted""")
         }
         source.close()
       } catch {
-        case e: Exception => println( s"""Could not open $credentialFile due to $e""")
+        case e: Exception =>
+          if (logOutput)
+            log.error( s"""Could not open $credentialFile due to $e""")
       }
 
       validCredentials(keyId, accessKey)
@@ -226,11 +231,11 @@ trait AWSCredentials {
    * @param m implicit actor materializer
    * @return aws credentials or None
    */
-  def getCredentialsProfile(profile: String = "default")
+  def getCredentialsProfile(profile: String = "default", logOutput:Boolean = true)
                            (implicit ec: ExecutionContext, s: ActorSystem, m: ActorMaterializer): Future[Option[AWSPermissions]] = {
     val home = System.getProperty("user.home")
     val credentialFile = home + File.separator + ".aws" + File.separator + "credentials"
-    getSpecificCredentialsProfile(credentialFile, profile)
+    getSpecificCredentialsProfile(credentialFile, profile, logOutput)
   }
 
   // gets the credentials on a ec2 server for a roleName
@@ -359,8 +364,8 @@ trait AWSCredentials {
     val envCredentialsAlt = Future.successful(getEnvironmentAlternateCredentials())
     val javaSysCredentials = Future.successful(getJavaSystemCredentials())
     val profileCredentials =
-      if (credentialFile == "") getCredentialsProfile(profile)
-      else getSpecificCredentialsProfile(credentialFile, profile)
+      if (credentialFile == "") getCredentialsProfile(profile, false)
+      else getSpecificCredentialsProfile(credentialFile, profile, false)
     //fix
     val ec2Credential = getAmazonEC2Credentials()
     val credentialProviderList: List[Future[Option[AWSPermissions]]] =
