@@ -44,7 +44,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
   describe("Should") {
     it ("get credentials") {
       val credentialSource = AWSCredentials.getAmazonEC2CredentialsSource()
-      val credentials = Await.result(credentialSource.getCredentials, 15  seconds)
+      val credentials = Await.result(credentialSource.getCredentials, 10  seconds)
       credentials.token.isEmpty shouldBe false
       credentials.expiration.isEmpty shouldBe false
     }
@@ -62,7 +62,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
         method = HttpMethods.GET,
         uri = URI
       )
-      val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 15 seconds)
+      val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 10 seconds)
       println(authRequest)
       val response = Await.result(post(authRequest), 10 seconds)
       jsonPrint(response)
@@ -70,7 +70,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
     }
     it ("send a request using general get method") {
       val credentialsSource = AWSCredentials.getCredentials(profile = "fail")
-      val permission = Await.result(credentialsSource.getCredentials, 15 seconds)
+      val permission = Await.result(credentialsSource.getCredentials, 10 seconds)
         val accessKeyID = permission.accessKeyId
         println(accessKeyID)
         val kSecret = permission.secretAccessKey
@@ -84,7 +84,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
           method = HttpMethods.GET,
           uri = URI
         )
-        val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+        val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
         println(authRequest)
         val response = Await.result(post(authRequest), 10 seconds)
         jsonPrint(response)
@@ -100,7 +100,7 @@ class EC2CredentialsSpec extends FunSpec with Matchers with SignRequestForAWS wi
         method = HttpMethods.GET,
         uri = URI
       )
-      val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 15 seconds)
+      val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 10 seconds)
       println(authRequest)
       val response = Await.result(post(authRequest), 10 seconds)
       jsonPrint(response)

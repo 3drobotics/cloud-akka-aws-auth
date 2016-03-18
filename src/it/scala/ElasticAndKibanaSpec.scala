@@ -80,7 +80,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -93,7 +93,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 15 seconds)
+    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -107,7 +107,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 15 seconds)
+    val authRequest = Await.result(addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -121,7 +121,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS{
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 15 seconds)
+    val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialsSource), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
