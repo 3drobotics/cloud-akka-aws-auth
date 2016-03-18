@@ -498,7 +498,7 @@ trait AWSCredentials {
   @throws(classOf[Exception])
   def getAmazonEC2CredentialsSource(timeout:Int = 500)(implicit ec: ExecutionContext, s:ActorSystem, m: ActorMaterializer): AWSCredentialSource = {
     AWSCredentialSource(
-      getAmazonEC2Credentials() map {
+      getAmazonEC2Credentials(timeout) map {
         case Some(permission:AWSPermissions) =>
           permission
         case None =>
