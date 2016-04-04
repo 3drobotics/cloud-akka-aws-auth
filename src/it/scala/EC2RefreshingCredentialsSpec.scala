@@ -44,7 +44,7 @@ class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignReques
       //      sleep until expire
       import java.io._
       val file = new File("./EC2RefreshingCredentialsSpecLog.txt")
-      val bw = new BufferedWriter(new FileWriter(file))
+      val fw = new FileWriter(file)
       var totalTime = 0
       val time: Int = 300000
       val baseURI = awsConfig.getString("URI")
@@ -66,10 +66,10 @@ class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignReques
         if (expiration != expires)
           println("Credentials have been refreshed! after " + totalTime + " milliseconds!")
         println(expiration)
-        bw.write(totalTime + ": " +  expiration + "\n")
+        fw.write(totalTime + ": " +  expiration + "\n")
         totalTime += time
       }
-      bw.close()
+      fw.close()
       val authRequest = Await.result(addAuthorizationHeaderFromCredentialsSource(request, region, service, credentialSource), 10 seconds)
       val response = Await.result(post(authRequest), 10 seconds)
       response.status shouldBe StatusCodes.OK
