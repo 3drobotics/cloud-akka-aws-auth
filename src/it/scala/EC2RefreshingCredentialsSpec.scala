@@ -60,8 +60,8 @@ class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignReques
       val expires = credentials.expiration
       while (totalTime < 130000000) {
         futureCredentials = credentialSource.getCredentials
+        credentials = Await.result(futureCredentials, 10 seconds)
         Thread.sleep(time)
-        credentials = Await.result(futureCredentials, 1 milliseconds)
         val expiration = credentials.expiration
         if (expiration != expires)
           println("Credentials have been refreshed! after " + totalTime + " milliseconds!")
