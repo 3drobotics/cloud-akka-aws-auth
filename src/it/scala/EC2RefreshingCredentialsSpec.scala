@@ -65,6 +65,7 @@ class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignReques
         val expiration = credentials.expiration
         if (expiration != expires)
           println("Credentials have been refreshed! after " + totalTime + " milliseconds!")
+        println(expiration)
         bw.write(totalTime + ": " +  expiration + "\n")
         totalTime += time
       }
