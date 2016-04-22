@@ -1,6 +1,6 @@
 name := "akka-http-aws-auth"
 
-version := "1.1"
+version := "1.3"
 
 scalaVersion := "2.11.7"
 
@@ -37,7 +37,6 @@ libraryDependencies ++= {
     "org.scalamock" %% "scalamock-scalatest-support" % "3.2" % "it,test",
     "org.specs2" %% "specs2-core" % "2.4.14" % "it,test",
     "ch.qos.logback" % "logback-classic" % "1.1.3",
-    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
-    "joda-time" % "joda-time" % "2.8.2"
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   )
 }
