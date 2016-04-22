@@ -3,7 +3,7 @@ import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import cloud.drdrdr.SignRequestForAWS
-import cloud.drdrdr.utils.AWSCredentials
+import cloud.drdrdr.utils.{SignRequestForAWSTest, AWSCredentials}
 import cloud.drdrdr.utils.Config.awsConfig
 import org.scalatest.{FunSpec, Matchers}
 
@@ -14,10 +14,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   * Created by Adam Villaflor on 4/4/2016.
   *
   */
-class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignRequestForAWS {
+class EC2RefreshingCredentialsSpec extends FunSpec with Matchers{
   implicit val testSystem = akka.actor.ActorSystem("test-system")
   implicit val ec: ExecutionContext = testSystem.dispatcher
   implicit val materializer = ActorMaterializer()
+  val requestSigner = new SignRequestForAWSTest
 
   val credentialProvider = new AWSCredentials()
 
@@ -69,7 +70,7 @@ class EC2RefreshingCredentialsSpec extends FunSpec with Matchers with SignReques
         fw.close()
         totalTime += time
       }
-      val authRequest = Await.result(addAuthorizationHeaderFromCredentialSource(request, region, service, credentialSource), 10 seconds)
+      val authRequest = Await.result(requestSigner.addAuthorizationHeaderFromCredentialSource(request, region, service, credentialSource), 10 seconds)
       val response = Await.result(post(authRequest), 10 seconds)
       response.status shouldBe StatusCodes.OK
     }

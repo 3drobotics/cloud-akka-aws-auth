@@ -5,7 +5,7 @@ import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import cloud.drdrdr.SignRequestForAWS
-import cloud.drdrdr.utils.AWSCredentials
+import cloud.drdrdr.utils.{SignRequestForAWSTest, AWSCredentials}
 import cloud.drdrdr.utils.Config.awsConfig
 import org.scalatest._
 import spray.json._
@@ -19,10 +19,11 @@ import scala.language.postfixOps
   * Created by Adam Villaflor <adam.villaflor@3drobotics.com> on 11/11/15.
   *
   */
-class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS {
+class ElasticAndKibanaSpec extends FunSpec with Matchers{
   implicit val testSystem = akka.actor.ActorSystem("test-system")
   implicit val ec: ExecutionContext = testSystem.dispatcher
   implicit val materializer = ActorMaterializer()
+  val requestSigner = new SignRequestForAWSTest
 
   val credentialProvider = new AWSCredentials()
   val credentialsSource = credentialProvider.getCredentials()
@@ -68,7 +69,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS 
       uri = URI,
       entity = entity
     )
-    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
+    val authRequest = Await.result(requestSigner.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.Created
   }
@@ -82,7 +83,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS 
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
+    val authRequest = Await.result(requestSigner.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -96,7 +97,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS 
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
+    val authRequest = Await.result(requestSigner.addAuthorizationHeader(request, kSecret, region, accessKeyID, service, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -110,7 +111,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS 
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 10 seconds)
+    val authRequest = Await.result(requestSigner.addQueryString(request, kSecret, region, accessKeyID, service, 30, token), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }
@@ -125,7 +126,7 @@ class ElasticAndKibanaSpec extends FunSpec with Matchers with SignRequestForAWS 
       method = HttpMethods.GET,
       uri = URI
     )
-    val authRequest = Await.result(addAuthorizationHeaderFromCredentialSource(request, region, service, credentialSource), 10 seconds)
+    val authRequest = Await.result(requestSigner.addAuthorizationHeaderFromCredentialSource(request, region, service, credentialSource), 10 seconds)
     val response = Await.result(post(authRequest), 10 seconds)
     response.status shouldBe StatusCodes.OK
   }

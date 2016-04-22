@@ -200,15 +200,14 @@ class AWSCredentials(implicit ec: ExecutionContext, system: ActorSystem, materia
     * @return aws credentials or None
     */
   def getAmazonEC2Credentials(timeout: Int = 300): Future[Option[AWSPermissions]] = {
+    val log: Logger = Logger(LoggerFactory.getLogger(getClass))
     val roleName = getAmazonEC2RoleName(timeout)
     val ec2Credentials = roleName flatMap {
       case Some(role) =>
         getEC2RoleCredentials(role, timeout)
       case None =>
-        throw new Exception("Unable to get role")
-      case _ => Future {
-        None
-      }
+        log.error( s"""Unable to obtain role""")
+        Future.successful(None)
     }
     ec2Credentials
   }
@@ -231,7 +230,7 @@ class AWSCredentials(implicit ec: ExecutionContext, system: ActorSystem, materia
   // gets credentials from the http response of a ec2 instance
   def getCredentialsEC2Response(response: HttpResponse): Future[Option[AWSPermissions]] = {
     response.entity.dataBytes.map(_.utf8String).grouped(Int.MaxValue).runWith(Sink.head) map {
-      case responseInfo =>
+      responseInfo =>
         val responseData = responseInfo.mkString
         val responseJson = responseData.parseJson
         var keyId: Option[String] = None
@@ -256,9 +255,9 @@ class AWSCredentials(implicit ec: ExecutionContext, system: ActorSystem, materia
   }
 
   // checks if both the access key Id and the secret key are valid
-  def validCredentials(keyId: Option[String], accessKey: Option[String], token: Option[String] = Some(""), expiration: Option[String] = Some("")): Option[AWSPermissions] = {
+  def validCredentials(keyId: Option[String], accessKey: Option[String], token: Option[String] = None, expiration: Option[String] = None): Option[AWSPermissions] = {
     if (keyId.isDefined && accessKey.isDefined && keyId.get != null && accessKey.get != null)
-      Some(new AWSPermissions(keyId.get, accessKey.get, token.get, expiration.get))
+      Some(new AWSPermissions(keyId.get, accessKey.get, token.getOrElse(""), expiration.getOrElse("")))
     else None
   }
 

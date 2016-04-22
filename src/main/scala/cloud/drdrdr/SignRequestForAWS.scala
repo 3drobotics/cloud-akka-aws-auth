@@ -22,7 +22,8 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   */
 
-trait SignRequestForAWS {
+class SignRequestForAWS(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer) {
+
   /**
     * uses an updatingAWSPermission to sign your requests
     *
@@ -30,13 +31,9 @@ trait SignRequestForAWS {
     * @param region           the region you are using for the aws service
     * @param service          the aws service the request is being sent to
     * @param credentialSource AWSCredentialSource that contains your AWSPermissions
-    * @param ec               implicit execution context
-    * @param system           implicit actor system
-    * @param materializer     implicit actor materializer
     * @return the httpRequest with the authorization header added
     */
-  def addAuthorizationHeaderFromCredentialSource(httpRequest: HttpRequest, region: String, service: String, credentialSource: AWSCredentialSource)
-                                                (implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Future[HttpRequest] = {
+  def addAuthorizationHeaderFromCredentialSource(httpRequest: HttpRequest, region: String, service: String, credentialSource: AWSCredentialSource): Future[HttpRequest] = {
     credentialSource.getCredentials.flatMap {
       case p: AWSPermissions =>
         addAuthorizationHeader(httpRequest, p.secretAccessKey, region, p.accessKeyId, service, p.token)
@@ -53,13 +50,9 @@ trait SignRequestForAWS {
     * @param accessKeyId  the access key id associated with the aws secret key
     * @param service      the aws service the request is being sent to
     * @param token        the security token associated with the temporary aws credentials (not needed if the aws credentials are not temporary)
-    * @param ec           implicit execution context
-    * @param system       implicit actor system
-    * @param materializer implicit actor materializer
     * @return the httpRequest with the authorization header added
     */
-  def addAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, token: String = "")
-                            (implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Future[HttpRequest] = {
+  def addAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, token: String = ""): Future[HttpRequest] = {
     var tokenRequest = httpRequest
     if (token.length() > 0) {
       tokenRequest = httpRequest.withHeaders(httpRequest.headers :+ RawHeader("x-amz-security-token", token))
@@ -73,8 +66,7 @@ trait SignRequestForAWS {
   }
 
   // creates the authorization header as described in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
-  protected def createAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String)
-                                         (implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Future[String] = {
+  protected def createAuthorizationHeader(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String): Future[String] = {
     val noHmsDate = getNoHmsDate(httpRequest)
     val canonicalRequestFuture: Future[String] = createCanonicalRequest(httpRequest)
     canonicalRequestFuture.map { canonicalRequest =>
@@ -98,13 +90,9 @@ trait SignRequestForAWS {
     * @param accessKeyId  the access key id associated with the aws secret key
     * @param service      the aws service the request is being sent to
     * @param token        the security token associated with the temporary aws credentials (not needed if the aws credentials are not temporary)
-    * @param ec           implicit execution context
-    * @param system       implicit actor system
-    * @param materializer implicit actor materializer
     * @return the httpRequest with the authorization query added
     */
-  def addQueryString(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, expires: Int, token: String = "")
-                    (implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Future[HttpRequest] = {
+  def addQueryString(httpRequest: HttpRequest, key: String, region: String, accessKeyId: String, service: String, expires: Int, token: String = ""): Future[HttpRequest] = {
     val date = getUTCTime()
     var tokenRequest = httpRequest
     if (token.length > 0) {
@@ -130,7 +118,7 @@ trait SignRequestForAWS {
 
   // only gets the signed headers needed
   // needed for Authorization Header
-  protected def getSignedHeaders(headers: Seq[HttpHeader], uri: Uri)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getSignedHeaders(headers: Seq[HttpHeader], uri: Uri): String = {
     val headersAndHost = headers :+ RawHeader("host", uri.authority.host.toString())
     // headers must be sorted by lowercase name
     val headerList = headersAndHost.map { header => header.lowercaseName() -> header.value() }
@@ -140,7 +128,7 @@ trait SignRequestForAWS {
   }
 
   // creates the signature using the required fields
-  protected def getSignatureKey(key: String, dateStamp: String, regionName: String, serviceName: String)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Array[Byte] = {
+  protected def getSignatureKey(key: String, dateStamp: String, regionName: String, serviceName: String): Array[Byte] = {
     val kSecret: Array[Byte] = ("AWS4" + key).getBytes("UTF8")
     val kDate: Array[Byte] = HmacSHA256(dateStamp, kSecret)
     val kRegion: Array[Byte] = HmacSHA256(regionName, kDate)
@@ -150,12 +138,12 @@ trait SignRequestForAWS {
   }
 
   // gets the signature as described by http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
-  protected def getSignature(signatureKey: Array[Byte], stringToSign: String)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getSignature(signatureKey: Array[Byte], stringToSign: String): String = {
     Hex.encodeHexString(HmacSHA256(stringToSign, signatureKey))
   }
 
   // hashes data using the hmacSHA256 algorithm
-  protected def HmacSHA256(data: String, key: Array[Byte])(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Array[Byte] = {
+  protected def HmacSHA256(data: String, key: Array[Byte]): Array[Byte] = {
     val algorithm: String = "HmacSHA256"
     val mac: Mac = Mac.getInstance(algorithm)
     mac.init(new SecretKeySpec(key, algorithm))
@@ -177,7 +165,7 @@ trait SignRequestForAWS {
 
   // Generate a canonical request string as defined in
   // http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
-  protected def createCanonicalRequest(httpRequest: HttpRequest)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): Future[String] = {
+  protected def createCanonicalRequest(httpRequest: HttpRequest): Future[String] = {
     val contentsFuture =
       if (httpRequest.entity.isKnownEmpty()) Future.successful("")
       else httpRequest.entity.dataBytes.map(_.utf8String).runWith(Sink.head)
@@ -191,7 +179,7 @@ trait SignRequestForAWS {
   }
 
   // Generate a canonical string representation of the request headers
-  protected def generateCanonicalHeaders(headers: Seq[HttpHeader])(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def generateCanonicalHeaders(headers: Seq[HttpHeader]): String = {
     require(headers.map(_.lowercaseName()).toList.contains("host"))
     // headers must be sorted by lowercase name, and whitespace must be trimmed from the value
     val headerList = headers.map { header => header.lowercaseName() -> header.value().trim }
@@ -217,7 +205,7 @@ trait SignRequestForAWS {
   }
 
   // SHA hashes the payload
-  protected def signPayload(payload: String)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def signPayload(payload: String): String = {
     val md = MessageDigest.getInstance("SHA-256")
     md.update(payload.getBytes("UTF-8"))
     Hex.encodeHexString(md.digest())
@@ -231,8 +219,7 @@ trait SignRequestForAWS {
   }
 
   // creates the string to sign based on aws protocol
-  protected def createStringToSign(httpRequest: HttpRequest, canonicalRequest: String, region: String, service: String)
-                                  (implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def createStringToSign(httpRequest: HttpRequest, canonicalRequest: String, region: String, service: String): String = {
     val noHmsDate = getNoHmsDate(httpRequest)
     s"""${"AWS4-HMAC-SHA256"}
        |${getCanonicalFormDate(httpRequest.headers)}
@@ -241,7 +228,7 @@ trait SignRequestForAWS {
   }
 
   // get canonical date with time stamp
-  protected def getCanonicalFormDate(headers: Seq[HttpHeader])(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getCanonicalFormDate(headers: Seq[HttpHeader]): String = {
     val dateString = headers
       .filter(_.lowercaseName() == "x-amz-date")
       .map { header => header.lowercaseName() -> header.value().trim }
@@ -256,7 +243,7 @@ trait SignRequestForAWS {
   }
 
   // runs same algorithm as sign payload but on the canonicalRequest
-  protected def hashCanonicalRequest(canonicalRequest: String)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def hashCanonicalRequest(canonicalRequest: String): String = {
     val md = MessageDigest.getInstance("SHA-256")
     md.update(canonicalRequest.getBytes("UTF-8"))
     Hex.encodeHexString(md.digest())
@@ -265,7 +252,7 @@ trait SignRequestForAWS {
   // got utc time for amz date from http://stackoverflow.com/questions/25991892/how-do-i-format-time-to-utc-time-zone
   // got formatting from http://stackoverflow.com/questions/5377790/date-conversion
   // formatting based on convention for amz signing
-  protected def getUTCTime()(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getUTCTime(): String = {
     val date = new Date()
     val format1 = new SimpleDateFormat("yyyyMMdd")
     format1.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
@@ -275,12 +262,12 @@ trait SignRequestForAWS {
   }
 
   // finds the relevant fields in the http request and returns the credential scope
-  protected def getCredentialScope(noHmsDate: String, region: String, service: String)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getCredentialScope(noHmsDate: String, region: String, service: String): String = {
     noHmsDate + "/" + region + "/" + service + "/" + "aws4_request"
   }
 
   // gets the date from the  x-amz-date header without HHmmss
-  protected def getNoHmsDate(httpRequest: HttpRequest)(implicit ec: ExecutionContext, system: ActorSystem, materializer: ActorMaterializer): String = {
+  protected def getNoHmsDate(httpRequest: HttpRequest): String = {
     httpRequest.headers
       .filter(_.lowercaseName() == "x-amz-date")
       .map { header => header.lowercaseName() -> header.value().trim }
@@ -289,4 +276,3 @@ trait SignRequestForAWS {
   }
 }
 
-object SignRequestForAWS extends SignRequestForAWS
