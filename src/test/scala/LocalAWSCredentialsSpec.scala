@@ -47,7 +47,7 @@ class LocalAWSCredentialsSpec extends FunSpec with Matchers {
       properties.setProperty("aws.accessKeyId", "AKIAIOSFODNN7EXAMPLE")
       properties.setProperty("aws.secretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
       val testCredentials = Some(new AWSPermissions("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-      val credentials = credentialProvider.getJavaSystemCredentials()
+      val credentials = credentialProvider.getJavaSystemCredentials
       credentials.get.accessKeyId shouldBe testCredentials.get.accessKeyId
       credentials.get.secretAccessKey shouldBe testCredentials.get.secretAccessKey
       credentials.get.token shouldBe testCredentials.get.token
